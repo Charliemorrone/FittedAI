@@ -25,124 +25,128 @@ interface Props {
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 120;
 
-// Mock data for demonstration
-const MOCK_RECOMMENDATIONS: OutfitRecommendation[] = [
-  {
-    id: '1',
-    items: [
-      {
-        id: 'item1',
-        name: 'Elegant Black Dress',
-        brand: 'Fashion Brand',
-        price: 89.99,
-        imageUrl: 'https://via.placeholder.com/300x400/000000/FFFFFF?text=Black+Dress',
-        amazonUrl: 'https://amazon.com/dress1',
-        category: 'top',
-        colors: ['black'],
-        sizes: ['S', 'M', 'L'],
-      },
-      {
-        id: 'item2',
-        name: 'Black Heels',
-        brand: 'Shoe Brand',
-        price: 129.99,
-        imageUrl: 'https://via.placeholder.com/300x400/000000/FFFFFF?text=Black+Heels',
-        amazonUrl: 'https://amazon.com/heels1',
-        category: 'shoes',
-        colors: ['black'],
-        sizes: ['7', '8', '9', '10'],
-      },
-    ],
-    imageUrl: 'https://via.placeholder.com/300x400/6366f1/FFFFFF?text=Outfit+1',
-    eventType: 'wedding',
-    styleDescription: 'Elegant black dress with matching heels',
-    confidence: 0.85,
-  },
-  {
-    id: '2',
-    items: [
-      {
-        id: 'item3',
-        name: 'Navy Blazer',
-        brand: 'Professional Brand',
-        price: 149.99,
-        imageUrl: 'https://via.placeholder.com/300x400/000080/FFFFFF?text=Navy+Blazer',
-        amazonUrl: 'https://amazon.com/blazer1',
-        category: 'top',
-        colors: ['navy'],
-        sizes: ['S', 'M', 'L', 'XL'],
-      },
-      {
-        id: 'item4',
-        name: 'White Dress Shirt',
-        brand: 'Shirt Brand',
-        price: 49.99,
-        imageUrl: 'https://via.placeholder.com/300x400/FFFFFF/000000?text=White+Shirt',
-        amazonUrl: 'https://amazon.com/shirt1',
-        category: 'top',
-        colors: ['white'],
-        sizes: ['S', 'M', 'L', 'XL'],
-      },
-      {
-        id: 'item5',
-        name: 'Dress Pants',
-        brand: 'Pants Brand',
-        price: 79.99,
-        imageUrl: 'https://via.placeholder.com/300x400/000000/FFFFFF?text=Dress+Pants',
-        amazonUrl: 'https://amazon.com/pants1',
-        category: 'bottom',
-        colors: ['black', 'navy'],
-        sizes: ['30', '32', '34', '36'],
-      },
-    ],
-    imageUrl: 'https://via.placeholder.com/300x400/4f46e5/FFFFFF?text=Outfit+2',
-    eventType: 'business',
-    styleDescription: 'Professional navy blazer with white shirt and dress pants',
-    confidence: 0.92,
-  },
-  {
-    id: '3',
-    items: [
-      {
-        id: 'item6',
-        name: 'Casual T-Shirt',
-        brand: 'Casual Brand',
-        price: 24.99,
-        imageUrl: 'https://via.placeholder.com/300x400/ff6b6b/FFFFFF?text=Casual+T-Shirt',
-        amazonUrl: 'https://amazon.com/tshirt1',
-        category: 'top',
-        colors: ['red', 'blue', 'white'],
-        sizes: ['S', 'M', 'L', 'XL'],
-      },
-      {
-        id: 'item7',
-        name: 'Blue Jeans',
-        brand: 'Jeans Brand',
-        price: 59.99,
-        imageUrl: 'https://via.placeholder.com/300x400/4dabf7/FFFFFF?text=Blue+Jeans',
-        amazonUrl: 'https://amazon.com/jeans1',
-        category: 'bottom',
-        colors: ['blue'],
-        sizes: ['28', '30', '32', '34', '36'],
-      },
-      {
-        id: 'item8',
-        name: 'Sneakers',
-        brand: 'Shoe Brand',
-        price: 89.99,
-        imageUrl: 'https://via.placeholder.com/300x400/51cf66/FFFFFF?text=Sneakers',
-        amazonUrl: 'https://amazon.com/sneakers1',
-        category: 'shoes',
-        colors: ['white', 'black'],
-        sizes: ['7', '8', '9', '10', '11'],
-      },
-    ],
-    imageUrl: 'https://via.placeholder.com/300x400/51cf66/FFFFFF?text=Outfit+3',
-    eventType: 'casual',
-    styleDescription: 'Casual t-shirt with blue jeans and sneakers',
-    confidence: 0.78,
-  },
-];
+// Enhanced mock data with better Gray Whale simulation
+const generateMockRecommendations = (preferences: UserPreferences): OutfitRecommendation[] => {
+  const baseRecommendations = [
+    {
+      id: 'gw_rec_001',
+      items: [
+        {
+          id: 'amz_B08N5WRWNW',
+          name: 'Elegant Midi Dress',
+          brand: 'Calvin Klein',
+          price: 89.99,
+          imageUrl: 'https://via.placeholder.com/300x400/1a1a2e/FFFFFF?text=Elegant+Dress',
+          amazonUrl: 'https://amazon.com/dp/B08N5WRWNW',
+          category: 'top' as const,
+          colors: ['black', 'navy'],
+          sizes: ['XS', 'S', 'M', 'L', 'XL'],
+        },
+        {
+          id: 'amz_B07QXYZ123',
+          name: 'Block Heel Pumps',
+          brand: 'Naturalizer',
+          price: 79.99,
+          imageUrl: 'https://via.placeholder.com/300x400/2d3436/FFFFFF?text=Block+Heels',
+          amazonUrl: 'https://amazon.com/dp/B07QXYZ123',
+          category: 'shoes' as const,
+          colors: ['black', 'nude'],
+          sizes: ['6', '7', '8', '9', '10'],
+        },
+      ],
+      imageUrl: 'https://via.placeholder.com/300x500/6366f1/FFFFFF?text=Gray+Whale+Match+95%25',
+      eventType: preferences.eventType,
+      styleDescription: `Perfect match for "${preferences.stylePrompt}" - Sophisticated and elegant`,
+      confidence: 0.95,
+    },
+    {
+      id: 'gw_rec_002',
+      items: [
+        {
+          id: 'amz_B09ABC456',
+          name: 'Tailored Blazer',
+          brand: 'Theory',
+          price: 198.00,
+          imageUrl: 'https://via.placeholder.com/300x400/2c3e50/FFFFFF?text=Tailored+Blazer',
+          amazonUrl: 'https://amazon.com/dp/B09ABC456',
+          category: 'top' as const,
+          colors: ['navy', 'charcoal', 'black'],
+          sizes: ['XS', 'S', 'M', 'L'],
+        },
+        {
+          id: 'amz_B08DEF789',
+          name: 'Silk Blouse',
+          brand: 'Equipment',
+          price: 128.00,
+          imageUrl: 'https://via.placeholder.com/300x400/ecf0f1/2c3e50?text=Silk+Blouse',
+          amazonUrl: 'https://amazon.com/dp/B08DEF789',
+          category: 'top' as const,
+          colors: ['white', 'cream', 'blush'],
+          sizes: ['XS', 'S', 'M', 'L', 'XL'],
+        },
+        {
+          id: 'amz_B07GHI012',
+          name: 'Straight Leg Trousers',
+          brand: 'Banana Republic',
+          price: 89.50,
+          imageUrl: 'https://via.placeholder.com/300x400/34495e/FFFFFF?text=Trousers',
+          amazonUrl: 'https://amazon.com/dp/B07GHI012',
+          category: 'bottom' as const,
+          colors: ['navy', 'black', 'charcoal'],
+          sizes: ['0', '2', '4', '6', '8', '10', '12'],
+        },
+      ],
+      imageUrl: 'https://via.placeholder.com/300x500/4f46e5/FFFFFF?text=Gray+Whale+Match+88%25',
+      eventType: preferences.eventType,
+      styleDescription: `Professional ensemble matching your style - Modern and polished`,
+      confidence: 0.88,
+    },
+    {
+      id: 'gw_rec_003',
+      items: [
+        {
+          id: 'amz_B06JKL345',
+          name: 'Cashmere Sweater',
+          brand: 'Everlane',
+          price: 118.00,
+          imageUrl: 'https://via.placeholder.com/300x400/e17055/FFFFFF?text=Cashmere+Sweater',
+          amazonUrl: 'https://amazon.com/dp/B06JKL345',
+          category: 'top' as const,
+          colors: ['camel', 'cream', 'navy', 'black'],
+          sizes: ['XS', 'S', 'M', 'L'],
+        },
+        {
+          id: 'amz_B05MNO678',
+          name: 'High-Waisted Jeans',
+          brand: 'Levi\'s',
+          price: 69.50,
+          imageUrl: 'https://via.placeholder.com/300x400/3498db/FFFFFF?text=High+Waist+Jeans',
+          amazonUrl: 'https://amazon.com/dp/B05MNO678',
+          category: 'bottom' as const,
+          colors: ['dark wash', 'light wash', 'black'],
+          sizes: ['24', '25', '26', '27', '28', '29', '30'],
+        },
+        {
+          id: 'amz_B04PQR901',
+          name: 'White Leather Sneakers',
+          brand: 'Adidas',
+          price: 85.00,
+          imageUrl: 'https://via.placeholder.com/300x400/2ecc71/FFFFFF?text=White+Sneakers',
+          amazonUrl: 'https://amazon.com/dp/B04PQR901',
+          category: 'shoes' as const,
+          colors: ['white', 'off-white'],
+          sizes: ['5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9'],
+        },
+      ],
+      imageUrl: 'https://via.placeholder.com/300x500/10b981/FFFFFF?text=Gray+Whale+Match+82%25',
+      eventType: preferences.eventType,
+      styleDescription: `Casual chic inspired by your preferences - Comfortable yet stylish`,
+      confidence: 0.82,
+    },
+  ];
+
+  return baseRecommendations;
+};
 
 export default function RecommendationScreen({ navigation, route }: Props) {
   const { preferences } = route.params;
@@ -155,12 +159,13 @@ export default function RecommendationScreen({ navigation, route }: Props) {
   const opacity = new Animated.Value(1);
 
   useEffect(() => {
-    // Simulate loading recommendations from Gray Whale algorithm
+    // Simulate Gray Whale algorithm processing
     setTimeout(() => {
-      setRecommendations(MOCK_RECOMMENDATIONS);
+      const mockRecommendations = generateMockRecommendations(preferences);
+      setRecommendations(mockRecommendations);
       setIsLoading(false);
-    }, 1500);
-  }, []);
+    }, 2500); // Longer delay to show the enhanced loading screen
+  }, [preferences]);
 
   const handleSwipe = (direction: 'left' | 'right') => {
     const currentOutfit = recommendations[currentIndex];
@@ -255,8 +260,19 @@ export default function RecommendationScreen({ navigation, route }: Props) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Finding your perfect outfits...</Text>
-        <Text style={styles.loadingSubtext}>Using Gray Whale algorithm</Text>
+        <View style={styles.loadingIcon}>
+          <Text style={styles.loadingIconText}>🧠</Text>
+        </View>
+        <Text style={styles.loadingText}>Gray Whale is analyzing your style...</Text>
+        <Text style={styles.loadingSubtext}>
+          • Processing your reference photo{'\n'}
+          • Understanding your style preferences{'\n'}
+          • Finding matching outfits from our database{'\n'}
+          • Generating personalized recommendations
+        </Text>
+        <View style={styles.progressIndicator}>
+          <View style={styles.progressBar} />
+        </View>
       </View>
     );
   }
@@ -356,16 +372,52 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f8fafc',
+    padding: 40,
+  },
+  loadingIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#6366f1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  loadingIconText: {
+    fontSize: 32,
+    color: '#ffffff',
   },
   loadingText: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1f2937',
-    marginBottom: 8,
+    marginBottom: 16,
+    textAlign: 'center',
   },
   loadingSubtext: {
     fontSize: 16,
     color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  progressIndicator: {
+    width: '100%',
+    height: 4,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#6366f1',
+    borderRadius: 2,
   },
   emptyContainer: {
     flex: 1,
@@ -473,12 +525,6 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     marginBottom: 8,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 2,
-    overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
