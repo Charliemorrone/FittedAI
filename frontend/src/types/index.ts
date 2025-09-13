@@ -62,6 +62,7 @@ export interface PurchaseItem {
 
 // Navigation types
 export type RootStackParamList = {
+  SplashScreen: undefined;
   InputScreen: undefined;
   CameraScreen: undefined;
   RecommendationScreen: {

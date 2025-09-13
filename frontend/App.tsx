@@ -9,6 +9,7 @@ import InputScreen from './src/screens/InputScreen';
 import CameraScreen from './src/screens/CameraScreen';
 import RecommendationScreen from './src/screens/RecommendationScreen';
 import PurchaseScreen from './src/screens/PurchaseScreen';
+import SplashScreen from './src/screens/SplashScreen';
 
 // Import types
 import { RootStackParamList } from './src/types';
@@ -20,11 +21,16 @@ export default function App() {
     <View style={styles.container}>
       <NavigationContainer>
         <Stack.Navigator
-          initialRouteName="InputScreen"
+          initialRouteName="SplashScreen"
           screenOptions={{
             headerShown: false,
           }}
         >
+          <Stack.Screen 
+            name="SplashScreen" 
+            component={SplashScreen}
+            options={{ title: 'Splash' }}
+          />
           <Stack.Screen 
             name="InputScreen" 
             component={InputScreen}
