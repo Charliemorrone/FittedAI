@@ -68,7 +68,7 @@ export default function InputScreen({ navigation }: Props) {
   const handleSuggestionPress = (suggestion: EventSuggestion) => {
     const suggestionText = `I need an outfit for ${suggestion.title.toLowerCase()}`;
     setMessage(suggestionText);
-    setHasStartedChat(true);
+    // Don't set hasStartedChat to true here - keep suggestions visible
     inputRef.current?.focus();
   };
 
@@ -84,7 +84,7 @@ export default function InputScreen({ navigation }: Props) {
     }
 
     setIsLoading(true);
-    setHasStartedChat(true);
+    setHasStartedChat(true); // Only hide suggestions when actually sending
 
     // Simulate Gray Whale API call
     setTimeout(() => {
@@ -153,34 +153,8 @@ export default function InputScreen({ navigation }: Props) {
               />
             </>
           ) : (
-            <View style={styles.chatContainer}>
-              {/* User Message */}
-              <View style={styles.userMessageContainer}>
-                <View style={styles.userMessage}>
-                  <Text style={styles.userMessageText}>{message}</Text>
-                </View>
-              </View>
-
-              {/* AI Response */}
-              <View style={styles.aiMessageContainer}>
-                <View style={styles.aiAvatar}>
-                  <Ionicons name="sparkles" size={16} color="#000" />
-                </View>
-                <View style={styles.aiMessage}>
-                  <Text style={styles.aiMessageText}>
-                    Perfect! I'll analyze your style preferences and find matching outfits.
-                    {referenceImage ? ' Your reference photo will help me understand your taste better.' : ' Don\'t forget to add a reference photo!'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Reference Image Display */}
-              {referenceImage && (
-                <View style={styles.imagePreviewContainer}>
-                  <Text style={styles.imagePreviewLabel}>Reference Photo</Text>
-                  <Image source={{ uri: referenceImage }} style={styles.imagePreview} />
-                </View>
-              )}
+            <View style={styles.emptyStateContainer}>
+              {/* Just show empty space or minimal content when typing */}
             </View>
           )}
         </ScrollView>
@@ -315,68 +289,10 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     maxWidth: 280,
   },
-  chatContainer: {
-    paddingTop: 20,
-    paddingBottom: 120,
-  },
-  userMessageContainer: {
-    alignItems: 'flex-end',
-    marginBottom: 16,
-  },
-  userMessage: {
-    backgroundColor: '#111827',
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    maxWidth: '80%',
-  },
-  userMessageText: {
-    color: '#ffffff',
-    fontSize: 16,
-    lineHeight: 22,
-  },
-  aiMessageContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-  },
-  aiAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  aiMessage: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  emptyStateContainer: {
     flex: 1,
-    maxWidth: '80%',
-  },
-  aiMessageText: {
-    color: '#111827',
-    fontSize: 16,
-    lineHeight: 22,
-  },
-  imagePreviewContainer: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  imagePreviewLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  imagePreview: {
-    width: 200,
-    height: 150,
-    borderRadius: 12,
-    backgroundColor: '#f3f4f6',
+    paddingTop: 40,
+    paddingBottom: 120,
   },
   inputArea: {
     paddingHorizontal: 20,
