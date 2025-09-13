@@ -11,11 +11,12 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  Animated,
+  SafeAreaView,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import * as ImagePicker from 'expo-image-picker';
-import { RootStackParamList, UserPreferences, EventType } from '../types';
+import { Ionicons } from '@expo/vector-icons';
+import { RootStackParamList, UserPreferences } from '../types';
 
 type InputScreenNavigationProp = StackNavigationProp<RootStackParamList, 'InputScreen'>;
 
@@ -23,28 +24,23 @@ interface Props {
   navigation: InputScreenNavigationProp;
 }
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-const STYLE_SUGGESTIONS = [
-  "I need a professional outfit for a business meeting",
-  "Looking for a casual weekend look with jeans",
-  "Want an elegant dress for a wedding guest",
-  "Need workout clothes for the gym",
-  "Looking for a romantic date night outfit",
-  "Want a trendy party look with bold colors",
-  "Need a comfortable travel outfit",
-  "Looking for a formal black-tie event outfit",
-  "Want a boho-chic summer dress",
-  "Need a cozy fall layered look",
+const EVENT_SUGGESTIONS = [
+  { id: 'business', title: 'Business Meeting', emoji: '💼', description: 'Professional attire' },
+  { id: 'wedding', title: 'Wedding Guest', emoji: '💒', description: 'Elegant formal wear' },
+  { id: 'date', title: 'Date Night', emoji: '💕', description: 'Romantic and stylish' },
+  { id: 'casual', title: 'Weekend Casual', emoji: '👕', description: 'Comfortable and relaxed' },
+  { id: 'party', title: 'Party/Event', emoji: '🎉', description: 'Fun and trendy' },
+  { id: 'travel', title: 'Travel Outfit', emoji: '✈️', description: 'Comfortable for travel' },
 ];
 
 export default function InputScreen({ navigation }: Props) {
-  const [stylePrompt, setStylePrompt] = useState<string>('');
+  const [message, setMessage] = useState<string>('');
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [hasStartedChat, setHasStartedChat] = useState(false);
   const inputRef = useRef<TextInput>(null);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -66,19 +62,15 @@ export default function InputScreen({ navigation }: Props) {
     }
   };
 
-  const handleSuggestionSelect = (suggestion: string) => {
-    setStylePrompt(suggestion);
-    setShowSuggestions(false);
-    
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
+  const handleSuggestionPress = (suggestion: typeof EVENT_SUGGESTIONS[0]) => {
+    const suggestionText = `I need an outfit for ${suggestion.title.toLowerCase()}`;
+    setMessage(suggestionText);
+    setHasStartedChat(true);
+    inputRef.current?.focus();
   };
 
-  const handleSubmit = async () => {
-    if (!stylePrompt.trim()) {
+  const handleSendMessage = async () => {
+    if (!message.trim()) {
       Alert.alert('Missing Information', 'Please describe what kind of outfit you\'re looking for.');
       return;
     }
@@ -89,12 +81,13 @@ export default function InputScreen({ navigation }: Props) {
     }
 
     setIsLoading(true);
+    setHasStartedChat(true);
 
     // Simulate Gray Whale API call
     setTimeout(() => {
       const preferences: UserPreferences = {
-        eventType: 'custom', // Derived from AI prompt analysis
-        stylePrompt: stylePrompt.trim(),
+        eventType: 'custom',
+        stylePrompt: message.trim(),
         referenceImage: referenceImage,
         likedOutfits: [],
         dislikedOutfits: [],
@@ -112,348 +105,411 @@ export default function InputScreen({ navigation }: Props) {
 
       navigation.navigate('RecommendationScreen', { preferences });
       setIsLoading(false);
-    }, 2000); // Longer delay to simulate Gray Whale processing
-  };
-
-  const handleInputFocus = () => {
-    if (showSuggestions) {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => setShowSuggestions(false));
-    }
+    }, 2000);
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.header}>
-        <View style={styles.aiIcon}>
-          <Text style={styles.aiIconText}>✨</Text>
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardContainer} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>FittedAI</Text>
+            <Text style={styles.headerSubtitle}>Your AI Style Assistant</Text>
+          </View>
         </View>
-        <Text style={styles.title}>FittedAI Style Assistant</Text>
-        <Text style={styles.subtitle}>Tell me what you're looking for and I'll find the perfect outfit</Text>
-      </View>
 
-      <ScrollView style={styles.chatContainer} contentContainerStyle={styles.chatContent}>
-        {/* Reference Photo Section */}
-        <View style={styles.photoSection}>
-          <Text style={styles.photoSectionTitle}>
-            {referenceImage ? '✅ Reference Photo Added' : '📷 Add Reference Photo (Required)'}
-          </Text>
-          <TouchableOpacity 
-            style={[styles.imagePicker, referenceImage && styles.imagePickerSelected]} 
-            onPress={pickImage}
-          >
-            {referenceImage ? (
-              <Image source={{ uri: referenceImage }} style={styles.referenceImage} />
-            ) : (
-              <View style={styles.imagePlaceholder}>
-                <Text style={styles.imagePlaceholderText}>📸</Text>
-                <Text style={styles.imagePlaceholderLabel}>Tap to upload your style reference</Text>
+        {/* Main Content */}
+        <ScrollView 
+          style={styles.mainContent} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {!hasStartedChat ? (
+            <>
+              {/* Center Question */}
+              <View style={styles.centerContent}>
+                <View style={styles.logoContainer}>
+                  <View style={styles.logo}>
+                    <Ionicons name="sparkles" size={32} color="#000" />
+                  </View>
+                </View>
+                <Text style={styles.mainQuestion}>What's the event?</Text>
+                <Text style={styles.subQuestion}>
+                  Tell me about the occasion and I'll help you find the perfect outfit
+                </Text>
               </View>
-            )}
-          </TouchableOpacity>
-        </View>
 
-        {/* Suggestions */}
-        {showSuggestions && (
-          <Animated.View style={[styles.suggestionsContainer, { opacity: fadeAnim }]}>
-            <Text style={styles.suggestionsTitle}>Try asking me about:</Text>
-            <View style={styles.suggestionsGrid}>
-              {STYLE_SUGGESTIONS.slice(0, 6).map((suggestion, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.suggestionChip}
-                  onPress={() => handleSuggestionSelect(suggestion)}
-                >
-                  <Text style={styles.suggestionText}>{suggestion}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </Animated.View>
-        )}
+              {/* Event Suggestion Cards */}
+              <View style={styles.suggestionsContainer}>
+                <Text style={styles.suggestionsTitle}>Popular requests</Text>
+                <View style={styles.suggestionsGrid}>
+                  {EVENT_SUGGESTIONS.map((suggestion) => (
+                    <TouchableOpacity
+                      key={suggestion.id}
+                      style={styles.suggestionCard}
+                      onPress={() => handleSuggestionPress(suggestion)}
+                    >
+                      <Text style={styles.suggestionEmoji}>{suggestion.emoji}</Text>
+                      <Text style={styles.suggestionTitle}>{suggestion.title}</Text>
+                      <Text style={styles.suggestionDescription}>{suggestion.description}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </>
+          ) : (
+            <View style={styles.chatContainer}>
+              {/* User Message */}
+              <View style={styles.userMessageContainer}>
+                <View style={styles.userMessage}>
+                  <Text style={styles.userMessageText}>{message}</Text>
+                </View>
+              </View>
 
-        {/* Chat Messages */}
-        {stylePrompt && !showSuggestions && (
-          <View style={styles.messagesContainer}>
-            <View style={styles.userMessage}>
-              <Text style={styles.userMessageText}>{stylePrompt}</Text>
+              {/* AI Response */}
+              <View style={styles.aiMessageContainer}>
+                <View style={styles.aiAvatar}>
+                  <Ionicons name="sparkles" size={16} color="#000" />
+                </View>
+                <View style={styles.aiMessage}>
+                  <Text style={styles.aiMessageText}>
+                    Perfect! I'll analyze your style preferences and find matching outfits.
+                    {referenceImage ? ' Your reference photo will help me understand your taste better.' : ' Don\'t forget to add a reference photo!'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Reference Image Display */}
+              {referenceImage && (
+                <View style={styles.imagePreviewContainer}>
+                  <Text style={styles.imagePreviewLabel}>Reference Photo</Text>
+                  <Image source={{ uri: referenceImage }} style={styles.imagePreview} />
+                </View>
+              )}
             </View>
-            <View style={styles.aiMessage}>
-              <Text style={styles.aiMessageText}>
-                Perfect! I'll analyze your style preferences and find matching outfits. 
-                {referenceImage ? ' Your reference photo will help me understand your taste better.' : ' Don\'t forget to add a reference photo!'}
-              </Text>
-            </View>
+          )}
+        </ScrollView>
+
+        {/* Bottom Input Area */}
+        <View style={styles.inputArea}>
+          {/* Reference Image Status */}
+          {referenceImage ? (
+            <TouchableOpacity style={styles.imageStatus} onPress={pickImage}>
+              <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+              <Text style={styles.imageStatusText}>Reference photo added</Text>
+              <Text style={styles.imageStatusSubtext}>Tap to change</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.imageUploadPrompt} onPress={pickImage}>
+              <Ionicons name="image-outline" size={20} color="#6b7280" />
+              <Text style={styles.imageUploadText}>Add reference photo (required)</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Input Container */}
+          <View style={styles.inputContainer}>
+            <TouchableOpacity 
+              style={styles.imageButton} 
+              onPress={pickImage}
+            >
+              <Ionicons 
+                name={referenceImage ? "checkmark" : "image"} 
+                size={20} 
+                color={referenceImage ? "#10b981" : "#6b7280"} 
+              />
+            </TouchableOpacity>
+
+            <TextInput
+              ref={inputRef}
+              style={styles.textInput}
+              placeholder="Message FittedAI..."
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              maxLength={300}
+              returnKeyType="send"
+              onSubmitEditing={handleSendMessage}
+              placeholderTextColor="#9ca3af"
+            />
+
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!message.trim() || !referenceImage || isLoading) && styles.sendButtonDisabled
+              ]}
+              onPress={handleSendMessage}
+              disabled={!message.trim() || !referenceImage || isLoading}
+            >
+              {isLoading ? (
+                <Ionicons name="hourglass" size={18} color="#fff" />
+              ) : (
+                <Ionicons name="arrow-up" size={18} color="#fff" />
+              )}
+            </TouchableOpacity>
           </View>
-        )}
-      </ScrollView>
-
-      {/* Input Area */}
-      <View style={styles.inputContainer}>
-        <View style={styles.inputWrapper}>
-          <TextInput
-            ref={inputRef}
-            style={styles.textInput}
-            placeholder="Describe the outfit you're looking for..."
-            value={stylePrompt}
-            onChangeText={setStylePrompt}
-            onFocus={handleInputFocus}
-            multiline
-            maxLength={200}
-            returnKeyType="send"
-            onSubmitEditing={handleSubmit}
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, (!stylePrompt.trim() || !referenceImage || isLoading) && styles.sendButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={!stylePrompt.trim() || !referenceImage || isLoading}
-          >
-            <Text style={styles.sendButtonText}>
-              {isLoading ? '⏳' : '✨'}
-            </Text>
-          </TouchableOpacity>
         </View>
-        {isLoading && (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>🧠 Gray Whale is analyzing your style...</Text>
-          </View>
-        )}
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
+  },
+  keyboardContainer: {
+    flex: 1,
   },
   header: {
-    paddingTop: 20,
     paddingHorizontal: 20,
-    paddingBottom: 15,
-    backgroundColor: '#ffffff',
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#f3f4f6',
+  },
+  headerContent: {
     alignItems: 'center',
   },
-  aiIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#6366f1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  aiIconText: {
-    fontSize: 24,
-    color: '#ffffff',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  chatContainer: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  chatContent: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  photoSection: {
-    marginBottom: 25,
-  },
-  photoSectionTitle: {
-    fontSize: 16,
+  headerTitle: {
+    fontSize: 20,
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: 12,
-    textAlign: 'center',
+    color: '#111827',
   },
-  imagePicker: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
-    borderStyle: 'dashed',
-    height: 120,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  imagePickerSelected: {
-    borderColor: '#10b981',
-    borderStyle: 'solid',
-  },
-  imagePlaceholder: {
-    alignItems: 'center',
-  },
-  imagePlaceholderText: {
-    fontSize: 28,
-    marginBottom: 6,
-  },
-  imagePlaceholderLabel: {
+  headerSubtitle: {
     fontSize: 14,
     color: '#6b7280',
-    textAlign: 'center',
+    marginTop: 2,
   },
-  referenceImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 14,
+  mainContent: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  logoContainer: {
+    marginBottom: 24,
+  },
+  logo: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mainQuestion: {
+    fontSize: 32,
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  subQuestion: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 24,
+    maxWidth: 280,
   },
   suggestionsContainer: {
-    marginBottom: 20,
+    paddingBottom: 120,
   },
   suggestionsTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#374151',
-    marginBottom: 15,
-    textAlign: 'center',
+    marginBottom: 16,
   },
   suggestionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  suggestionChip: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginBottom: 8,
+  suggestionCard: {
+    width: (width - 52) / 2,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    alignItems: 'center',
   },
-  suggestionText: {
+  suggestionEmoji: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  suggestionTitle: {
     fontSize: 14,
-    color: '#374151',
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  suggestionDescription: {
+    fontSize: 12,
+    color: '#6b7280',
     textAlign: 'center',
   },
-  messagesContainer: {
-    marginTop: 20,
+  chatContainer: {
+    paddingTop: 20,
+    paddingBottom: 120,
+  },
+  userMessageContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 16,
   },
   userMessage: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#6366f1',
+    backgroundColor: '#111827',
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginBottom: 12,
     maxWidth: '80%',
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
   },
   userMessageText: {
     color: '#ffffff',
     fontSize: 16,
     lineHeight: 22,
   },
+  aiMessageContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  aiAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
   aiMessage: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f3f4f6',
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    flex: 1,
     maxWidth: '80%',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
   },
   aiMessageText: {
-    color: '#374151',
+    color: '#111827',
     fontSize: 16,
     lineHeight: 22,
   },
-  inputContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  imagePreviewContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  imagePreviewLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  imagePreview: {
+    width: 200,
+    height: 150,
+    borderRadius: 12,
+    backgroundColor: '#f3f4f6',
+  },
+  inputArea: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    paddingBottom: 30,
+    borderTopColor: '#f3f4f6',
   },
-  inputWrapper: {
+  imageStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  imageStatusText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#059669',
+    marginLeft: 8,
+    flex: 1,
+  },
+  imageStatusSubtext: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  imageUploadPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fef3c7',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  imageUploadText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#d97706',
+    marginLeft: 8,
+  },
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     backgroundColor: '#f3f4f6',
-    borderRadius: 25,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    minHeight: 50,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 48,
+  },
+  imageButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1f2937',
+    color: '#111827',
     maxHeight: 100,
-    paddingVertical: 8,
+    paddingVertical: 0,
   },
   sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#6366f1',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#111827',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 12,
   },
   sendButtonDisabled: {
     backgroundColor: '#d1d5db',
-  },
-  sendButtonText: {
-    fontSize: 16,
-    color: '#ffffff',
-  },
-  loadingContainer: {
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 14,
-    color: '#6366f1',
-    fontWeight: '500',
   },
 });

@@ -9,9 +9,11 @@ import {
   Linking,
   Alert,
   Dimensions,
+  SafeAreaView,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList, PurchaseItem, OutfitItem } from '../types';
 
 type PurchaseScreenNavigationProp = StackNavigationProp<RootStackParamList, 'PurchaseScreen'>;
@@ -91,12 +93,22 @@ export default function PurchaseScreen({ navigation, route }: Props) {
     .reduce((sum, item) => sum + item.price, 0);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Your Selected Items</Text>
-        <Text style={styles.subtitle}>
-          {selectedItems.size} of {purchaseItem.items.length} items selected
-        </Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>Your Selected Items</Text>
+          <Text style={styles.subtitle}>
+            {selectedItems.size} of {purchaseItem.items.length} items selected
+          </Text>
+        </View>
+        <View style={styles.headerRight} />
       </View>
 
       <View style={styles.summaryContainer}>
@@ -184,31 +196,48 @@ export default function PurchaseScreen({ navigation, route }: Props) {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
   },
   header: {
-    padding: 20,
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#f3f4f6',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerRight: {
+    width: 40,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#6b7280',
+    marginTop: 2,
   },
   summaryContainer: {
     flexDirection: 'row',

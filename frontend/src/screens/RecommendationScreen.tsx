@@ -8,10 +8,12 @@ import {
   Image,
   Alert,
   Animated,
+  SafeAreaView,
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList, UserPreferences, OutfitRecommendation, SwipeAction } from '../types';
 
 type RecommendationScreenNavigationProp = StackNavigationProp<RootStackParamList, 'RecommendationScreen'>;
@@ -259,42 +261,61 @@ export default function RecommendationScreen({ navigation, route }: Props) {
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <View style={styles.loadingIcon}>
-          <Text style={styles.loadingIconText}>🧠</Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingIcon}>
+            <Ionicons name="sparkles" size={32} color="#ffffff" />
+          </View>
+          <Text style={styles.loadingText}>Gray Whale is analyzing your style...</Text>
+          <Text style={styles.loadingSubtext}>
+            • Processing your reference photo{'\n'}
+            • Understanding your style preferences{'\n'}
+            • Finding matching outfits from our database{'\n'}
+            • Generating personalized recommendations
+          </Text>
+          <View style={styles.progressIndicator}>
+            <View style={styles.progressBar} />
+          </View>
         </View>
-        <Text style={styles.loadingText}>Gray Whale is analyzing your style...</Text>
-        <Text style={styles.loadingSubtext}>
-          • Processing your reference photo{'\n'}
-          • Understanding your style preferences{'\n'}
-          • Finding matching outfits from our database{'\n'}
-          • Generating personalized recommendations
-        </Text>
-        <View style={styles.progressIndicator}>
-          <View style={styles.progressBar} />
-        </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (currentIndex >= recommendations.length) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No more recommendations!</Text>
-        <TouchableOpacity style={styles.purchaseButton} onPress={handlePurchase}>
-          <Text style={styles.actionButtonText}>View Liked Items</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="checkmark-circle" size={48} color="#10b981" />
+          </View>
+          <Text style={styles.emptyText}>All done!</Text>
+          <Text style={styles.emptySubtext}>You've seen all recommendations</Text>
+          <TouchableOpacity style={styles.purchaseButton} onPress={handlePurchase}>
+            <Ionicons name="bag" size={20} color="#ffffff" />
+            <Text style={styles.purchaseButtonText}>View Liked Items</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   const currentOutfit = recommendations[currentIndex];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.eventType}>{preferences.eventType.toUpperCase()}</Text>
-        <Text style={styles.stylePrompt}>"{preferences.stylePrompt}"</Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Recommendations</Text>
+          <Text style={styles.headerSubtitle}>"{preferences.stylePrompt}"</Text>
+        </View>
+        <View style={styles.headerRight} />
       </View>
 
       <View style={styles.cardContainer}>
@@ -327,21 +348,21 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           style={[styles.actionButton, styles.dislikeButton]}
           onPress={() => handleSwipe('left')}
         >
-          <Text style={styles.actionButtonText}>👎</Text>
+          <Ionicons name="close" size={24} color="#ffffff" />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, styles.purchaseButton]}
           onPress={handlePurchase}
         >
-          <Text style={styles.actionButtonText}>🛒</Text>
+          <Ionicons name="bag" size={20} color="#ffffff" />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, styles.likeButton]}
           onPress={() => handleSwipe('right')}
         >
-          <Text style={styles.actionButtonText}>👍</Text>
+          <Ionicons name="heart" size={20} color="#ffffff" />
         </TouchableOpacity>
       </View>
 
@@ -358,39 +379,35 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           />
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
     padding: 40,
   },
   loadingIcon: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#6366f1',
+    backgroundColor: '#111827',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
-    shadowColor: '#6366f1',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.1,
     shadowRadius: 16,
     elevation: 12,
-  },
-  loadingIconText: {
-    fontSize: 32,
-    color: '#ffffff',
   },
   loadingText: {
     fontSize: 24,
@@ -416,36 +433,62 @@ const styles = StyleSheet.create({
   progressBar: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#6366f1',
+    backgroundColor: '#111827',
     borderRadius: 2,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    padding: 20,
+    backgroundColor: '#ffffff',
+    padding: 40,
   },
-  emptyText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
+  emptyIcon: {
     marginBottom: 20,
   },
+  emptyText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 16,
+    color: '#6b7280',
+    marginBottom: 32,
+  },
   header: {
-    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  eventType: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6366f1',
-    marginBottom: 4,
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
   },
-  stylePrompt: {
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  headerSubtitle: {
     fontSize: 14,
     color: '#6b7280',
-    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  headerRight: {
+    width: 40,
   },
   cardContainer: {
     flex: 1,
@@ -511,7 +554,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#10b981',
   },
   purchaseButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#111827',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+  },
+  purchaseButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   actionButtonText: {
     fontSize: 24,

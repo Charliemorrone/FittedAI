@@ -21,13 +21,7 @@ export default function App() {
         <Stack.Navigator
           initialRouteName="InputScreen"
           screenOptions={{
-            headerStyle: {
-              backgroundColor: '#6366f1',
-            },
-            headerTintColor: '#fff',
-            headerTitleStyle: {
-              fontWeight: 'bold',
-            },
+            headerShown: false,
           }}
         >
           <Stack.Screen 
@@ -55,6 +49,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
   },
 });
