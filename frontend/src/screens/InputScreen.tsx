@@ -17,6 +17,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList, UserPreferences } from '../types';
+import EventSuggestionCarousel, { EventSuggestion } from '../components/EventSuggestionCarousel';
 
 type InputScreenNavigationProp = StackNavigationProp<RootStackParamList, 'InputScreen'>;
 
@@ -26,13 +27,15 @@ interface Props {
 
 const { width, height } = Dimensions.get('window');
 
-const EVENT_SUGGESTIONS = [
-  { id: 'business', title: 'Business Meeting', emoji: '💼', description: 'Professional attire' },
-  { id: 'wedding', title: 'Wedding Guest', emoji: '💒', description: 'Elegant formal wear' },
-  { id: 'date', title: 'Date Night', emoji: '💕', description: 'Romantic and stylish' },
-  { id: 'casual', title: 'Weekend Casual', emoji: '👕', description: 'Comfortable and relaxed' },
-  { id: 'party', title: 'Party/Event', emoji: '🎉', description: 'Fun and trendy' },
-  { id: 'travel', title: 'Travel Outfit', emoji: '✈️', description: 'Comfortable for travel' },
+const EVENT_SUGGESTIONS: EventSuggestion[] = [
+  { id: 'business', title: 'Business Meeting', icon: 'briefcase', description: 'Professional attire' },
+  { id: 'wedding', title: 'Wedding Guest', icon: 'flower', description: 'Elegant formal wear' },
+  { id: 'date', title: 'Date Night', icon: 'heart', description: 'Romantic and stylish' },
+  { id: 'casual', title: 'Weekend Casual', icon: 'shirt', description: 'Comfortable and relaxed' },
+  { id: 'party', title: 'Party/Event', icon: 'musical-notes', description: 'Fun and trendy' },
+  { id: 'travel', title: 'Travel Outfit', icon: 'airplane', description: 'Comfortable for travel' },
+  { id: 'gym', title: 'Gym/Workout', icon: 'fitness', description: 'Athletic and functional' },
+  { id: 'formal', title: 'Formal Event', icon: 'diamond', description: 'Black-tie elegance' },
 ];
 
 export default function InputScreen({ navigation }: Props) {
@@ -62,7 +65,7 @@ export default function InputScreen({ navigation }: Props) {
     }
   };
 
-  const handleSuggestionPress = (suggestion: typeof EVENT_SUGGESTIONS[0]) => {
+  const handleSuggestionPress = (suggestion: EventSuggestion) => {
     const suggestionText = `I need an outfit for ${suggestion.title.toLowerCase()}`;
     setMessage(suggestionText);
     setHasStartedChat(true);
@@ -143,23 +146,11 @@ export default function InputScreen({ navigation }: Props) {
                 </Text>
               </View>
 
-              {/* Event Suggestion Cards */}
-              <View style={styles.suggestionsContainer}>
-                <Text style={styles.suggestionsTitle}>Popular requests</Text>
-                <View style={styles.suggestionsGrid}>
-                  {EVENT_SUGGESTIONS.map((suggestion) => (
-                    <TouchableOpacity
-                      key={suggestion.id}
-                      style={styles.suggestionCard}
-                      onPress={() => handleSuggestionPress(suggestion)}
-                    >
-                      <Text style={styles.suggestionEmoji}>{suggestion.emoji}</Text>
-                      <Text style={styles.suggestionTitle}>{suggestion.title}</Text>
-                      <Text style={styles.suggestionDescription}>{suggestion.description}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+              {/* Event Suggestion Carousel */}
+              <EventSuggestionCarousel
+                suggestions={EVENT_SUGGESTIONS}
+                onSuggestionPress={handleSuggestionPress}
+              />
             </>
           ) : (
             <View style={styles.chatContainer}>
@@ -323,46 +314,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     maxWidth: 280,
-  },
-  suggestionsContainer: {
-    paddingBottom: 120,
-  },
-  suggestionsTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 16,
-  },
-  suggestionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  suggestionCard: {
-    width: (width - 52) / 2,
-    backgroundColor: '#f9fafb',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    alignItems: 'center',
-  },
-  suggestionEmoji: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  suggestionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  suggestionDescription: {
-    fontSize: 12,
-    color: '#6b7280',
-    textAlign: 'center',
   },
   chatContainer: {
     paddingTop: 20,
