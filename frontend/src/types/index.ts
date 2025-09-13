@@ -14,7 +14,7 @@ export interface OutfitItem {
   price: number;
   imageUrl: string;
   amazonUrl: string;
-  category: 'top' | 'bottom' | 'shoes' | 'accessories';
+  category: "top" | "bottom" | "shoes" | "accessories";
   colors: string[];
   sizes: string[];
 }
@@ -49,7 +49,7 @@ export interface UserPreferences {
 
 export interface SwipeAction {
   outfitId: string;
-  action: 'like' | 'dislike';
+  action: "like" | "dislike";
   timestamp: number;
 }
 
@@ -63,6 +63,7 @@ export interface PurchaseItem {
 // Navigation types
 export type RootStackParamList = {
   InputScreen: undefined;
+  CameraScreen: undefined;
   RecommendationScreen: {
     preferences: UserPreferences;
   };

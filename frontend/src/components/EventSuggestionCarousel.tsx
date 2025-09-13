@@ -51,12 +51,11 @@ const EventSuggestionCarousel: React.FC<Props> = ({ suggestions, onSuggestionPre
             <View style={styles.iconContainer}>
               <Ionicons 
                 name={suggestion.icon} 
-                size={24} 
+                size={20} 
                 color="#111827" 
               />
             </View>
             <Text style={styles.suggestionTitle}>{suggestion.title}</Text>
-            <Text style={styles.suggestionDescription}>{suggestion.description}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -66,7 +65,8 @@ const EventSuggestionCarousel: React.FC<Props> = ({ suggestions, onSuggestionPre
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 120,
+    paddingBottom: 20,
+    marginTop: 20,
   },
   title: {
     fontSize: 16,
@@ -82,13 +82,13 @@ const styles = StyleSheet.create({
   suggestionCard: {
     backgroundColor: '#f9fafb',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     marginRight: 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 140,
+    minHeight: 100,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -102,23 +102,22 @@ const styles = StyleSheet.create({
     marginRight: 20,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
   suggestionTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#111827',
     textAlign: 'center',
-    marginBottom: 6,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   suggestionDescription: {
     fontSize: 12,

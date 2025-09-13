@@ -6,6 +6,7 @@ import { StyleSheet, View } from 'react-native';
 
 // Import screens
 import InputScreen from './src/screens/InputScreen';
+import CameraScreen from './src/screens/CameraScreen';
 import RecommendationScreen from './src/screens/RecommendationScreen';
 import PurchaseScreen from './src/screens/PurchaseScreen';
 
@@ -28,6 +29,11 @@ export default function App() {
             name="InputScreen" 
             component={InputScreen}
             options={{ title: 'FittedAI - Style Input' }}
+          />
+          <Stack.Screen 
+            name="CameraScreen" 
+            component={CameraScreen}
+            options={{ title: 'Take Photo' }}
           />
           <Stack.Screen 
             name="RecommendationScreen" 

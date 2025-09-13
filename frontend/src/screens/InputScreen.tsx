@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,10 +14,13 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList, UserPreferences } from '../types';
 import EventSuggestionCarousel, { EventSuggestion } from '../components/EventSuggestionCarousel';
+import PhotoSelectionModal from '../components/PhotoSelectionModal';
+import { PhotoStorageService } from '../services/photoStorageService';
 
 type InputScreenNavigationProp = StackNavigationProp<RootStackParamList, 'InputScreen'>;
 
@@ -43,25 +46,105 @@ export default function InputScreen({ navigation }: Props) {
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasStartedChat, setHasStartedChat] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
-  const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (permissionResult.granted === false) {
-      Alert.alert('Permission Required', 'Permission to access camera roll is required!');
-      return;
+  const loadStoredPhoto = async () => {
+    console.log('🔄 InputScreen: Loading stored photo...');
+    try {
+      const storedPhotoUri = await PhotoStorageService.getReferencePhoto();
+      console.log('📷 InputScreen: Stored photo URI:', storedPhotoUri);
+      if (storedPhotoUri) {
+        setReferenceImage(storedPhotoUri);
+        console.log('✅ InputScreen: Photo loaded and set in state');
+      } else {
+        console.log('❌ InputScreen: No stored photo found');
+      }
+    } catch (error) {
+      console.error('💥 InputScreen: Error loading stored photo:', error);
     }
+  };
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
+  // Load stored photo when component mounts
+  useEffect(() => {
+    loadStoredPhoto();
+  }, []);
 
-    if (!result.canceled) {
-      setReferenceImage(result.assets[0].uri);
+  // Reload photo when returning from camera screen
+  useFocusEffect(
+    React.useCallback(() => {
+      loadStoredPhoto();
+    }, [])
+  );
+
+  const handleTakePhoto = () => {
+    console.log('📸 InputScreen: Take photo button pressed');
+    setShowPhotoModal(false);
+    console.log('🚀 InputScreen: Navigating to CameraScreen...');
+    navigation.navigate('CameraScreen');
+    console.log('✅ InputScreen: Navigation call completed');
+  };
+
+  const handleChooseFromGallery = async () => {
+    console.log('🖼️ InputScreen: Choose from gallery button pressed');
+    setShowPhotoModal(false);
+    console.log('🔐 InputScreen: Requesting media library permissions...');
+    
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log('🔐 InputScreen: Permission result:', permissionResult);
+      
+      if (permissionResult.granted === false) {
+        console.log('❌ InputScreen: Media library permission denied');
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      console.log('📱 InputScreen: Launching image library...');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+      
+      console.log('📱 InputScreen: Image picker result:', result);
+
+      if (!result.canceled) {
+        const photoUri = result.assets[0].uri;
+        console.log('📷 InputScreen: Selected photo URI:', photoUri);
+        setReferenceImage(photoUri);
+        console.log('✅ InputScreen: Photo set in state');
+        
+        // Save to local storage
+        try {
+          console.log('💾 InputScreen: Saving photo to storage...');
+          await PhotoStorageService.saveReferencePhoto(photoUri);
+          console.log('✅ InputScreen: Photo saved to storage successfully');
+        } catch (error) {
+          console.error('💥 InputScreen: Error saving photo to storage:', error);
+        }
+      } else {
+        console.log('❌ InputScreen: Image picker was canceled');
+      }
+    } catch (error) {
+      console.error('💥 InputScreen: Error in handleChooseFromGallery:', error);
+    }
+  };
+
+  const handlePhotoButtonPress = () => {
+    console.log('🎯 InputScreen: Photo button pressed - showing modal');
+    setShowPhotoModal(true);
+  };
+
+  const clearPhoto = async () => {
+    console.log('🗑️ InputScreen: Clear photo button pressed');
+    try {
+      await PhotoStorageService.clearReferencePhoto();
+      setReferenceImage(null);
+      console.log('✅ InputScreen: Photo cleared successfully');
+    } catch (error) {
+      console.error('💥 InputScreen: Error clearing photo:', error);
     }
   };
 
@@ -87,27 +170,35 @@ export default function InputScreen({ navigation }: Props) {
     setHasStartedChat(true); // Only hide suggestions when actually sending
 
     // Simulate Gray Whale API call
-    setTimeout(() => {
-      const preferences: UserPreferences = {
-        eventType: 'custom',
-        stylePrompt: message.trim(),
-        referenceImage: referenceImage,
-        likedOutfits: [],
-        dislikedOutfits: [],
-        sizePreferences: {
-          top: 'M',
-          bottom: 'M',
-          shoes: '9',
-        },
-        colorPreferences: [],
-        priceRange: {
-          min: 20,
-          max: 200,
-        },
-      };
+    setTimeout(async () => {
+      try {
+        // Get the latest photo from storage
+        const storedPhoto = await PhotoStorageService.getReferencePhoto();
+        
+        const preferences: UserPreferences = {
+          eventType: 'custom',
+          stylePrompt: message.trim(),
+          referenceImage: storedPhoto || referenceImage,
+          likedOutfits: [],
+          dislikedOutfits: [],
+          sizePreferences: {
+            top: 'M',
+            bottom: 'M',
+            shoes: '9',
+          },
+          colorPreferences: [],
+          priceRange: {
+            min: 20,
+            max: 200,
+          },
+        };
 
-      navigation.navigate('RecommendationScreen', { preferences });
-      setIsLoading(false);
+        navigation.navigate('RecommendationScreen', { preferences });
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error preparing recommendations:', error);
+        setIsLoading(false);
+      }
     }, 2000);
   };
 
@@ -135,14 +226,9 @@ export default function InputScreen({ navigation }: Props) {
             <>
               {/* Center Question */}
               <View style={styles.centerContent}>
-                <View style={styles.logoContainer}>
-                  <View style={styles.logo}>
-                    <Ionicons name="sparkles" size={32} color="#000" />
-                  </View>
-                </View>
-                <Text style={styles.mainQuestion}>What's the event?</Text>
+                <Text style={styles.mainQuestion}>What's your event?</Text>
                 <Text style={styles.subQuestion}>
-                  Tell me about the occasion and I'll help you find the perfect outfit
+                  I'll help you find the perfect outfit
                 </Text>
               </View>
 
@@ -161,25 +247,30 @@ export default function InputScreen({ navigation }: Props) {
 
         {/* Bottom Input Area */}
         <View style={styles.inputArea}>
-          {/* Reference Image Status */}
-          {referenceImage ? (
-            <TouchableOpacity style={styles.imageStatus} onPress={pickImage}>
-              <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-              <Text style={styles.imageStatusText}>Reference photo added</Text>
-              <Text style={styles.imageStatusSubtext}>Tap to change</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.imageUploadPrompt} onPress={pickImage}>
-              <Ionicons name="image-outline" size={20} color="#6b7280" />
-              <Text style={styles.imageUploadText}>Add reference photo (required)</Text>
-            </TouchableOpacity>
+          {/* Reference Image Status - Only show when image is added */}
+          {referenceImage && (
+            <View style={styles.imageStatus}>
+              <TouchableOpacity 
+                style={styles.imageStatusContent} 
+                onPress={handlePhotoButtonPress}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+                <View style={styles.imageStatusTextContainer}>
+                  <Text style={styles.imageStatusText}>Reference photo added</Text>
+                  <Text style={styles.imageStatusSubtext}>Tap to change</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={clearPhoto} style={styles.clearPhotoButton}>
+                <Ionicons name="close" size={16} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* Input Container */}
           <View style={styles.inputContainer}>
             <TouchableOpacity 
               style={styles.imageButton} 
-              onPress={pickImage}
+              onPress={handlePhotoButtonPress}
             >
               <Ionicons 
                 name={referenceImage ? "checkmark" : "image"} 
@@ -217,6 +308,14 @@ export default function InputScreen({ navigation }: Props) {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Photo Selection Modal */}
+        <PhotoSelectionModal
+          visible={showPhotoModal}
+          onClose={() => setShowPhotoModal(false)}
+          onTakePhoto={handleTakePhoto}
+          onChooseFromGallery={handleChooseFromGallery}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -260,7 +359,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: 20,
+    paddingBottom: 40,
   },
   logoContainer: {
     marginBottom: 24,
@@ -304,6 +404,7 @@ const styles = StyleSheet.create({
   imageStatus: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -312,16 +413,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#bbf7d0',
   },
+  imageStatusContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  imageStatusTextContainer: {
+    marginLeft: 8,
+    flex: 1,
+  },
   imageStatusText: {
     fontSize: 14,
     fontWeight: '500',
     color: '#059669',
-    marginLeft: 8,
-    flex: 1,
   },
   imageStatusSubtext: {
     fontSize: 12,
     color: '#6b7280',
+  },
+  clearPhotoButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   imageUploadPrompt: {
     flexDirection: 'row',
@@ -342,7 +459,7 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     backgroundColor: '#f3f4f6',
     borderRadius: 24,
     paddingHorizontal: 16,
@@ -365,7 +482,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#111827',
     maxHeight: 100,
-    paddingVertical: 0,
+    paddingVertical: 8,
+    textAlignVertical: 'center',
   },
   sendButton: {
     width: 32,
