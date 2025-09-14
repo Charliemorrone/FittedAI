@@ -12,6 +12,7 @@ import {
   Platform,
   Animated,
   Keyboard,
+  ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -33,14 +34,17 @@ const { width, height } = Dimensions.get('window');
 
 const EVENT_SUGGESTIONS: EventSuggestion[] = [
   { id: 'business', title: 'Business Meeting', icon: 'briefcase', description: 'Professional attire' },
-  { id: 'wedding', title: 'Indian Wedding', icon: 'flower', description: 'Elegant formal wear' },
   { id: 'date', title: 'Date Night', icon: 'heart', description: 'Romantic and stylish' },
+  { id: 'wedding', title: 'Indian Wedding', icon: 'flower', description: 'Elegant formal wear' },
   { id: 'casual', title: 'Weekend Casual', icon: 'shirt', description: 'Comfortable and relaxed' },
   { id: 'party', title: 'Party/Event', icon: 'musical-notes', description: 'Fun and trendy' },
   { id: 'travel', title: 'Travel Outfit', icon: 'airplane', description: 'Comfortable for travel' },
   { id: 'gym', title: 'Gym/Workout', icon: 'fitness', description: 'Athletic and functional' },
   { id: 'formal', title: 'Formal Event', icon: 'diamond', description: 'Black-tie elegance' },
 ];
+
+// Local background image bundled with the app
+const BACKGROUND_IMAGE = require('../assets/images/input-bg.png');
 
 export default function InputScreen({ navigation }: Props) {
   const [message, setMessage] = useState<string>('');
@@ -330,15 +334,22 @@ export default function InputScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.root}>
+      <ImageBackground
+        source={BACKGROUND_IMAGE}
+        style={styles.absoluteBackground}
+        imageStyle={styles.imageBackgroundImage}
+        defaultSource={undefined}
+      />
+      <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
         style={styles.keyboardContainer} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, styles.headerTransparent]}>
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>FittedAI</Text>
+            <Text style={styles.headerTitle}>Fitted AI</Text>
             <Text style={styles.headerSubtitle}>Your AI Style Assistant</Text>
             
             {/* Mode Toggle - always present */}
@@ -373,10 +384,12 @@ export default function InputScreen({ navigation }: Props) {
             <>
               {/* Center Question */}
               <View style={styles.centerContent}>
-                <Text style={styles.mainQuestion}>What's your event?</Text>
-                <Text style={styles.subQuestion}>
-                  I'll help you find the perfect outfit
-                </Text>
+                <View style={styles.headingBlock}>
+                  <Text style={styles.mainQuestion}>What's your event?</Text>
+                  <Text style={styles.subQuestion}>
+                    I'll help you find the perfect outfit
+                  </Text>
+                </View>
               </View>
 
               {/* Event Suggestion Carousel */}
@@ -416,7 +429,7 @@ export default function InputScreen({ navigation }: Props) {
         </ScrollView>
 
         {/* Bottom Input Area */}
-        <View style={styles.inputArea}>
+        <View style={[styles.inputArea, styles.inputAreaTransparent]}>
           {/* Photo Status - Show both types when they exist */}
           {(referenceImage || selfieImage || partnerReferenceImage) && (
             <View style={styles.photoStatusContainer}>
@@ -481,7 +494,7 @@ export default function InputScreen({ navigation }: Props) {
               <Ionicons 
                 name={referenceImage ? "checkmark" : "image"} 
                 size={20} 
-                color={referenceImage ? "#10b981" : "#6b7280"} 
+                color="#ffffff" 
               />
             </TouchableOpacity>
 
@@ -600,35 +613,49 @@ export default function InputScreen({ navigation }: Props) {
           </View>
         )}
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'transparent',
   },
   keyboardContainer: {
     flex: 1,
   },
+  absoluteBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomWidth: 0,
+  },
+  headerTransparent: {
+    backgroundColor: 'transparent',
   },
   headerContent: {
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '600',
-    color: '#111827',
+    color: '#ffffff',
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#ffffff',
     marginTop: 2,
   },
   modeToggleContainer: {
@@ -659,17 +686,28 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 20,
+    backgroundColor: 'transparent',
+  },
+  fullScreenBackground: {
+    flex: 1,
+  },
+  imageBackgroundImage: {
+    resizeMode: 'cover',
+  },
+  headingBlock: {
+    transform: [{ translateY: Math.round(height * 0.15) }],
+    alignItems: 'center',
   },
   centerContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 20,
-    paddingBottom: 40,
   },
   logoContainer: {
     marginBottom: 24,
@@ -687,13 +725,13 @@ const styles = StyleSheet.create({
   mainQuestion: {
     fontSize: 32,
     fontWeight: '600',
-    color: '#111827',
+    color: '#ffffff',
     textAlign: 'center',
     marginBottom: 12,
   },
   subQuestion: {
     fontSize: 16,
-    color: '#6b7280',
+    color: '#e5e7eb',
     textAlign: 'center',
     lineHeight: 24,
     maxWidth: 280,
@@ -730,9 +768,12 @@ const styles = StyleSheet.create({
   inputArea: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    backgroundColor: 'transparent',
+    borderTopWidth: 0,
+  },
+  inputAreaTransparent: {
+    backgroundColor: 'transparent',
+    borderTopWidth: 0,
   },
   photoStatusContainer: {
     marginBottom: 12,
@@ -796,7 +837,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(17, 24, 39, 0.7)',
     borderRadius: 24,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -806,17 +847,17 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0f172a',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: '#111827',
+    color: '#ffffff',
     maxHeight: 100,
     paddingVertical: 0,
     textAlignVertical: 'center',
@@ -825,13 +866,13 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#111827',
+    backgroundColor: '#0f172a',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 12,
   },
   sendButtonDisabled: {
-    backgroundColor: '#d1d5db',
+    backgroundColor: '#1f2937',
   },
   photoOptionsOverlay: {
     position: 'absolute',

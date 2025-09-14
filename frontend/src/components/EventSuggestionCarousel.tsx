@@ -51,8 +51,8 @@ const EventSuggestionCarousel: React.FC<Props> = ({ suggestions, onSuggestionPre
             <View style={styles.iconContainer}>
               <Ionicons 
                 name={suggestion.icon} 
-r                size={20} 
-                color="#111827" 
+                size={20} 
+                color="#ffffff" 
               />
             </View>
             <Text style={styles.suggestionTitle}>{suggestion.title}</Text>
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#374151',
+    color: '#ffffff',
     marginBottom: 16,
     paddingHorizontal: 20,
   },
@@ -80,12 +80,12 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   suggestionCard: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: 'rgba(17, 24, 39, 0.7)',
     borderRadius: 16,
     padding: 16,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 100,
@@ -105,17 +105,16 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderWidth: 0,
   },
   suggestionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: '#ffffff',
     textAlign: 'center',
     lineHeight: 18,
   },

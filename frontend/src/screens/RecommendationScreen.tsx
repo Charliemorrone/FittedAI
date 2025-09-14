@@ -13,6 +13,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
+import { Image as RNImage } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -373,6 +374,49 @@ export default function RecommendationScreen({ navigation, route }: Props) {
     return `https://via.placeholder.com/300x400/6366f1/FFFFFF?text=${encodeURIComponent(imageText)}`;
   };
 
+  // Safely get an image URL for an outfit recommendation (fallbacks included)
+  const getOutfitImageUrl = (outfit?: OutfitRecommendation): string => {
+    if (!outfit) return 'https://via.placeholder.com/400x600/111827/FFFFFF?text=No+Image';
+    const primary = outfit.imageUrl && outfit.imageUrl.trim().length > 0 ? outfit.imageUrl : null;
+    const mainFromApi = (outfit as any).mainImageUrl && (outfit as any).mainImageUrl.trim().length > 0 ? (outfit as any).mainImageUrl : null;
+    const fromFirstItem = outfit.items && outfit.items[0] && outfit.items[0].imageUrl ? outfit.items[0].imageUrl : null;
+    return (
+      primary ||
+      mainFromApi ||
+      fromFirstItem ||
+      'https://via.placeholder.com/400x600/111827/FFFFFF?text=Loading+Style'
+    );
+  };
+
+  // Prefetch nearby images to reduce buffering during swipes
+  const prefetchedUrls = useRef(new Set<string>()).current;
+  const prefetchUrl = (url?: string) => {
+    if (!url) return;
+    if (prefetchedUrls.has(url)) return;
+    RNImage.prefetch(url)
+      .then(() => {
+        prefetchedUrls.add(url);
+      })
+      .catch(() => {
+        // Ignore prefetch errors
+      });
+  };
+  const prefetchAroundIndex = (indexToPrefetch: number) => {
+    if (isCollectionsMode) return;
+    const max = recommendations.length - 1;
+    const end = Math.min(max, indexToPrefetch + 3);
+    for (let i = indexToPrefetch; i <= end; i++) {
+      const url = getOutfitImageUrl(recommendations[i]);
+      prefetchUrl(url);
+    }
+  };
+
+  useEffect(() => {
+    if (!isCollectionsMode && recommendations.length > 0) {
+      prefetchAroundIndex(currentIndex);
+    }
+  }, [currentIndex, recommendations, isCollectionsMode]);
+
   // Animation helper functions
   const resetCardAnimations = () => {
     translateX.setValue(0);
@@ -659,15 +703,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           }
           return newCount;
         });
-        // No more recommendations, show purchase option
-        Alert.alert(
-          'All Done!',
-          'You\'ve seen all recommendations. Would you like to purchase any liked items?',
-          [
-            { text: 'Keep Browsing', style: 'cancel' },
-            { text: 'View Purchases', onPress: handlePurchase },
-          ]
-        );
+        // No more recommendations; continue silently without showing a modal
       }
     });
   };
@@ -1097,7 +1133,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
+          <Ionicons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Get Fitted</Text>
@@ -1124,7 +1160,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
             ]}
           >
             <Image 
-              source={{ uri: recommendations[currentIndex + 1].imageUrl }} 
+              source={{ uri: getOutfitImageUrl(recommendations[currentIndex + 1]) }} 
               style={styles.outfitImage} 
             />
           </Animated.View>
@@ -1134,7 +1170,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         {(!isCollectionsMode && currentIndex + 2 < recommendations.length) && (
           <View style={[styles.outfitCard, styles.thirdCard]}>
             <Image 
-              source={{ uri: recommendations[currentIndex + 2].imageUrl }} 
+              source={{ uri: getOutfitImageUrl(recommendations[currentIndex + 2]) }} 
               style={styles.outfitImage} 
             />
           </View>
@@ -1193,7 +1229,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
               </View>
             ) : (
               <>
-                <Image source={{ uri: currentOutfit?.imageUrl || '' }} style={styles.outfitImage} />
+                <Image source={{ uri: getOutfitImageUrl(currentOutfit || undefined) }} style={styles.outfitImage} />
                 
                 {/* Enhanced Swipe Indicators */}
                 <Animated.View 
@@ -1235,6 +1271,39 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         </PanGestureHandler>
       </View>
 
+      {/* Inline VEO Button below card, above bottom actions */}
+      {veoUnlocked && (
+        <View style={styles.veoInlineContainer}>
+          <Animated.View 
+            style={[
+              styles.veoInlineAnimated,
+              { opacity: veoButtonOpacity, transform: [{ scale: veoButtonScale }] }
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.veoInlineButton}
+              onPress={handleVeoGeneration}
+              activeOpacity={0.8}
+              disabled={isGeneratingVideo}
+            >
+              <View style={styles.veoInlineContent}>
+                {isGeneratingVideo ? (
+                  <>
+                    <Ionicons name="hourglass" size={18} color="#ffffff" />
+                    <Text style={styles.veoInlineLabel}>Generating... {Math.min(100, Math.round(videoProgress))}%</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="videocam" size={18} color="#ffffff" />
+                    <Text style={styles.veoInlineLabel}>Generate Video</Text>
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      )}
+
       {/* Unlock Notification */}
       {showUnlockNotification && (
         <Animated.View
@@ -1256,7 +1325,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
 
       {/* Bottom Action Bar */}
       <View style={styles.bottomActionBar}>
-        <Animated.View style={{ transform: [{ scale: dislikeButtonScale }], opacity: dislikeButtonOpacity }}>
+        <Animated.View style={[{ transform: [{ scale: dislikeButtonScale }], opacity: dislikeButtonOpacity }, styles.sideButtonWrapper]}>
           <TouchableOpacity
             style={[styles.actionButton, styles.dislikeButton]}
             onPress={() => handleSwipe('left', 0)}
@@ -1266,37 +1335,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* VEO Video Generation Button - Above Shop Button */}
         <View style={styles.centerButtonContainer}>
-          {veoUnlocked && (
-            <Animated.View 
-              style={[
-                styles.veoButtonContainer,
-                {
-                  opacity: veoButtonOpacity,
-                  transform: [{ scale: veoButtonScale }],
-                },
-              ]}
-            >
-              <TouchableOpacity
-                style={[styles.actionButton, styles.veoButton]}
-                onPress={handleVeoGeneration}
-                activeOpacity={0.7}
-                disabled={isGeneratingVideo}
-              >
-                {isGeneratingVideo ? (
-                  <View style={styles.veoButtonProgress}>
-                    <View style={[styles.veoProgressBar, { width: `${videoProgress}%` }]} />
-                    <Ionicons name="hourglass" size={24} color="#ffffff" style={styles.veoProgressIcon} />
-                  </View>
-                ) : (
-                  <Ionicons name="videocam" size={24} color="#ffffff" />
-                )}
-              </TouchableOpacity>
-              <Text style={styles.veoButtonLabel}>Gen Video</Text>
-            </Animated.View>
-          )}
-
           <TouchableOpacity
             style={[styles.actionButton, styles.shopButton]}
             onPress={handlePurchase}
@@ -1306,7 +1345,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         </View>
 
-        <Animated.View style={{ transform: [{ scale: likeButtonScale }], opacity: likeButtonOpacity }}>
+        <Animated.View style={[{ transform: [{ scale: likeButtonScale }], opacity: likeButtonOpacity }, styles.sideButtonWrapper]}>
           <TouchableOpacity
             style={[styles.actionButton, styles.likeButton]}
             onPress={() => handleSwipe('right', 0)}
@@ -1457,7 +1496,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#0b1220',
   },
   loadingContainer: {
     flex: 1,
@@ -1528,15 +1567,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1547,7 +1585,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: '#ffffff',
   },
   progressIndicator: {
     alignItems: 'center',
@@ -1555,7 +1593,7 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6b7280',
+    color: '#cbd5e1',
   },
   // Card Stack Container
   cardStackContainer: {
@@ -1586,6 +1624,36 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     zIndex: 0,
     transform: [{ scale: 0.9 }],
+  },
+  veoInlineContainer: {
+    paddingHorizontal: 40,
+    marginTop: 28,
+  },
+  veoInlineAnimated: {
+    width: '100%',
+  },
+  veoInlineButton: {
+    width: '100%',
+    backgroundColor: '#ff6b6b',
+    borderRadius: 14,
+    paddingVertical: 8,
+    shadowColor: '#ff6b6b',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  veoInlineContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  veoInlineLabel: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 8,
   },
   mainCard: {
     zIndex: 2,
@@ -1636,12 +1704,11 @@ const styles = StyleSheet.create({
   bottomActionBar: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     paddingHorizontal: 40,
     paddingVertical: 30,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    backgroundColor: 'rgba(2, 6, 23, 0.7)',
+    borderTopWidth: 0,
   },
   actionButton: {
     width: 64,
@@ -1668,6 +1735,9 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     marginHorizontal: 20,
+  },
+  sideButtonWrapper: {
+    marginBottom: 10,
   },
   centerButtonContainer: {
     alignItems: 'center',
