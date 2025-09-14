@@ -17,7 +17,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to camera to take photos for outfit recommendations.",
         "NSPhotoLibraryUsageDescription": "This app needs access to photo library to select reference photos for outfit recommendations."
-      }
+      },
+      "bundleIdentifier": "com.anonymous.FittedAIApp"
     },
     "android": {
       "adaptiveIcon": {

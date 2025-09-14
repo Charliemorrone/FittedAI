@@ -173,6 +173,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
   const [isCollectionsMode, setIsCollectionsMode] = useState(false);
   const [collections, setCollections] = useState<Array<any>>([]);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [pendingIndex, setPendingIndex] = useState<number | null>(null);
   const [veoUnlocked, setVeoUnlocked] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoResponse, setVideoResponse] = useState<VeoVideoResponse | null>(null);
@@ -643,10 +644,10 @@ export default function RecommendationScreen({ navigation, route }: Props) {
       console.log('👆 Collections mode - skipping Gray Whale feedback');
     }
 
-    // Calculate animation duration based on velocity
-    const baseDuration = 300;
+    // Calculate animation duration based on velocity - slightly longer for smoother transition
+    const baseDuration = 350;
     const velocityFactor = Math.min(Math.abs(velocity) / 2000, 1);
-    const duration = Math.max(baseDuration - (velocityFactor * 150), 150);
+    const duration = Math.max(baseDuration - (velocityFactor * 150), 200);
 
     // Enhanced swipe out animation - strictly horizontal
     const exitX = direction === 'right' ? width * 1.5 : -width * 1.5;
@@ -674,13 +675,21 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // Move to next card
+      // Move to next card with delayed state update
       const lastIndex = isCollectionsMode ? collections.length - 1 : recommendations.length - 1;
       if (currentIndex < lastIndex) {
-        setCurrentIndex(currentIndex + 1);
-        resetCardAnimations();
-        animateNextCard();
-        setIsAnimating(false);
+        const nextIndex = currentIndex + 1;
+        setPendingIndex(nextIndex);
+
+        // Delay the actual index update to prevent flash
+        setTimeout(() => {
+          setCurrentIndex(nextIndex);
+          setPendingIndex(null);
+          resetCardAnimations();
+          animateNextCard();
+          setIsAnimating(false);
+        }, 100); // Increased delay to ensure smooth transition
+
         // Update swipe count after animation completes
         setSwipeCount((c) => {
           const newCount = c + 1;
@@ -1147,31 +1156,33 @@ export default function RecommendationScreen({ navigation, route }: Props) {
 
       {/* Card Stack Container */}
       <View style={styles.cardStackContainer}>
-        {/* Background Cards for Stack Effect */}
-        {(!isCollectionsMode && currentIndex + 1 < recommendations.length) && (
-          <Animated.View 
+        {/* Background Cards for Stack Effect - Only render during stable state */}
+        {(!isCollectionsMode && !isAnimating && pendingIndex === null && currentIndex + 1 < recommendations.length) && (
+          <Animated.View
             style={[
-              styles.outfitCard, 
-              styles.backgroundCard, 
-              { 
+              styles.outfitCard,
+              styles.backgroundCard,
+              {
                 transform: [{ scale: nextCardScale }],
                 opacity: nextCardOpacity,
               }
             ]}
           >
-            <Image 
-              source={{ uri: getOutfitImageUrl(recommendations[currentIndex + 1]) }} 
-              style={styles.outfitImage} 
+            <Image
+              key={`bg-${currentIndex + 1}-${recommendations[currentIndex + 1]?.id}`}
+              source={{ uri: getOutfitImageUrl(recommendations[currentIndex + 1]) }}
+              style={styles.outfitImage}
             />
           </Animated.View>
         )}
-        
-        {/* Third card for deeper stack effect */}
-        {(!isCollectionsMode && currentIndex + 2 < recommendations.length) && (
+
+        {/* Third card for deeper stack effect - Only render during stable state */}
+        {(!isCollectionsMode && !isAnimating && pendingIndex === null && currentIndex + 2 < recommendations.length) && (
           <View style={[styles.outfitCard, styles.thirdCard]}>
-            <Image 
-              source={{ uri: getOutfitImageUrl(recommendations[currentIndex + 2]) }} 
-              style={styles.outfitImage} 
+            <Image
+              key={`third-${currentIndex + 2}-${recommendations[currentIndex + 2]?.id}`}
+              source={{ uri: getOutfitImageUrl(recommendations[currentIndex + 2]) }}
+              style={styles.outfitImage}
             />
           </View>
         )}
@@ -1229,7 +1240,11 @@ export default function RecommendationScreen({ navigation, route }: Props) {
               </View>
             ) : (
               <>
-                <Image source={{ uri: getOutfitImageUrl(currentOutfit || undefined) }} style={styles.outfitImage} />
+                <Image
+                  key={`main-${currentIndex}-${currentOutfit?.id}`}
+                  source={{ uri: getOutfitImageUrl(currentOutfit || undefined) }}
+                  style={styles.outfitImage}
+                />
                 
                 {/* Enhanced Swipe Indicators */}
                 <Animated.View 
