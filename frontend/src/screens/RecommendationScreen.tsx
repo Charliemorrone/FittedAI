@@ -168,6 +168,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
   const [swipeActions, setSwipeActions] = useState<SwipeAction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [swipeCount, setSwipeCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isCollectionsMode, setIsCollectionsMode] = useState(false);
   const [collections, setCollections] = useState<Array<any>>([]);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -224,10 +225,12 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           grayWhaleProjectKey: preferences.grayWhaleProjectKey
         });
         
-        const recs = await GrayWhaleService.getRecommendations(preferences);
+        const recs = await GrayWhaleService.getRecommendations(preferences, 1, 3);
         
         console.log('🐋 Gray Whale Service returned:', {
           recommendationsCount: recs?.length || 0,
+          page: 1,
+          batchSize: 3,
           firstRec: recs?.[0] ? {
             id: recs[0].id,
             styleDescription: recs[0].styleDescription,
@@ -242,6 +245,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         if (isMounted && recs && recs.length > 0) {
           console.log('✅ Gray Whale API successful, got', recs.length, 'recommendations');
           setRecommendations(recs);
+          setCurrentPage(1);
           setIsCollectionsMode(false);
           setIsLoading(false);
           return;
@@ -668,9 +672,9 @@ export default function RecommendationScreen({ navigation, route }: Props) {
     });
   };
 
-  // Auto-refresh after every 5 swipes (less aggressive to avoid animation conflicts)
+  // Auto-refresh after every 3 swipes to get next batch with updated ranking
   useEffect(() => {
-    if (!isLoading && !isCollectionsMode && swipeCount > 0 && swipeCount % 5 === 0) {
+    if (!isLoading && !isCollectionsMode && swipeCount > 0 && swipeCount % 3 === 0) {
       console.log('🔄 AUTO-REFRESH TRIGGERED:', {
         swipeCount,
         isLoading,
@@ -683,18 +687,21 @@ export default function RecommendationScreen({ navigation, route }: Props) {
       const refreshTimer = setTimeout(async () => {
         // Double-check we're not animating before refreshing
         if (!isAnimating) {
-          console.log('🔄 EXECUTING AUTO-REFRESH - Re-fetching Gray Whale recommendations...');
+          console.log('🔄 EXECUTING AUTO-REFRESH - Getting next batch with updated ranking...');
           try {
-            // Re-fetch recommendations. Backend uses prior feedback events to re-rank.
-            const updated = await GrayWhaleService.getRecommendations(preferences);
+            // Get next batch of recommendations. Backend uses prior feedback events to re-rank.
+            const nextPage = currentPage + 1;
+            const updated = await GrayWhaleService.getRecommendations(preferences, nextPage, 3);
             console.log('🔄 AUTO-REFRESH SUCCESS:', {
               previousCount: recommendations.length,
               newCount: updated.length,
+              newPage: nextPage,
               resetToIndex: 0
             });
-            // Replace remaining stack with updated items
+            // Replace remaining stack with updated items and advance to next page
             setRecommendations(updated);
             setCurrentIndex(0);
+            setCurrentPage(nextPage);
             resetCardAnimations();
           } catch (e) {
             console.error('🔄 AUTO-REFRESH FAILED:', e);
@@ -708,6 +715,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
       return () => clearTimeout(refreshTimer);
     }
   }, [swipeCount]);
+
 
   // Video status polling
   const startVideoPolling = (videoId: string) => {
@@ -1092,7 +1100,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Style Matters</Text>
+          <Text style={styles.headerTitle}>Get Fitted</Text>
         </View>
         <View style={styles.progressIndicator}>
           <Text style={styles.progressText}>
@@ -1220,13 +1228,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
                   <Text style={[styles.indicatorText, { color: '#ef4444' }]}>PASS</Text>
                 </Animated.View>
 
-                {/* Outfit Info Overlay */}
-                <View style={styles.outfitInfoOverlay}>
-                  <Text style={styles.outfitDescription}>{currentOutfit?.styleDescription || 'Style Match'}</Text>
-                  <Text style={styles.confidence}>
-                    {Math.round((currentOutfit?.confidence || 0) * 100)}% Match
-                  </Text>
-                </View>
+                {/* Outfit Info Overlay - REMOVED to show only photo */}
               </>
             )}
           </Animated.View>
@@ -1264,43 +1266,45 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         </Animated.View>
 
-        <TouchableOpacity
-          style={[styles.actionButton, styles.shopButton]}
-          onPress={handlePurchase}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="bag" size={26} color="#ffffff" />
-        </TouchableOpacity>
-
-        {/* VEO Video Generation Button */}
-        {veoUnlocked && (
-          <Animated.View 
-            style={[
-              styles.veoButtonContainer,
-              {
-                opacity: veoButtonOpacity,
-                transform: [{ scale: veoButtonScale }],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={[styles.actionButton, styles.veoButton]}
-              onPress={handleVeoGeneration}
-              activeOpacity={0.7}
-              disabled={isGeneratingVideo}
+        {/* VEO Video Generation Button - Above Shop Button */}
+        <View style={styles.centerButtonContainer}>
+          {veoUnlocked && (
+            <Animated.View 
+              style={[
+                styles.veoButtonContainer,
+                {
+                  opacity: veoButtonOpacity,
+                  transform: [{ scale: veoButtonScale }],
+                },
+              ]}
             >
-              {isGeneratingVideo ? (
-                <View style={styles.veoButtonProgress}>
-                  <View style={[styles.veoProgressBar, { width: `${videoProgress}%` }]} />
-                  <Ionicons name="hourglass" size={24} color="#ffffff" style={styles.veoProgressIcon} />
-                </View>
-              ) : (
-                <Ionicons name="videocam" size={24} color="#ffffff" />
-              )}
-            </TouchableOpacity>
-            <Text style={styles.veoButtonLabel}>Gen Video</Text>
-          </Animated.View>
-        )}
+              <TouchableOpacity
+                style={[styles.actionButton, styles.veoButton]}
+                onPress={handleVeoGeneration}
+                activeOpacity={0.7}
+                disabled={isGeneratingVideo}
+              >
+                {isGeneratingVideo ? (
+                  <View style={styles.veoButtonProgress}>
+                    <View style={[styles.veoProgressBar, { width: `${videoProgress}%` }]} />
+                    <Ionicons name="hourglass" size={24} color="#ffffff" style={styles.veoProgressIcon} />
+                  </View>
+                ) : (
+                  <Ionicons name="videocam" size={24} color="#ffffff" />
+                )}
+              </TouchableOpacity>
+              <Text style={styles.veoButtonLabel}>Gen Video</Text>
+            </Animated.View>
+          )}
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.shopButton]}
+            onPress={handlePurchase}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="bag" size={26} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
 
         <Animated.View style={{ transform: [{ scale: likeButtonScale }], opacity: likeButtonOpacity }}>
           <TouchableOpacity
@@ -1589,7 +1593,7 @@ const styles = StyleSheet.create({
   outfitImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
   // Swipe Indicators
   swipeIndicator: {
@@ -1627,27 +1631,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     letterSpacing: 1,
   },
-  // Outfit Info Overlay
-  outfitInfoOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    padding: 24,
-  },
-  outfitDescription: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 6,
-    lineHeight: 24,
-  },
-  confidence: {
-    fontSize: 14,
-    color: '#e2e8f0',
-    fontWeight: '500',
-  },
+  // Outfit Info Overlay styles removed - cards now show only photos
   // Bottom Action Bar
   bottomActionBar: {
     flexDirection: 'row',
@@ -1685,25 +1669,25 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     marginHorizontal: 20,
   },
+  centerButtonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   veoButtonContainer: {
     alignItems: 'center',
-    marginHorizontal: 12,
-    position: 'absolute',
-    top: -40,
-    right: 100,
-    zIndex: 10,
+    marginBottom: 8,
   },
   veoButton: {
     backgroundColor: '#ff6b6b',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     marginBottom: 4,
     shadowColor: '#ff6b6b',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
+    shadowRadius: 12,
+    elevation: 10,
   },
   veoButtonLabel: {
     fontSize: 10,
@@ -1718,7 +1702,7 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 28,
+    borderRadius: 25,
     overflow: 'hidden',
   },
   veoProgressBar: {
@@ -1727,7 +1711,7 @@ const styles = StyleSheet.create({
     top: 0,
     height: '100%',
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 28,
+    borderRadius: 25,
   },
   veoProgressIcon: {
     zIndex: 1,

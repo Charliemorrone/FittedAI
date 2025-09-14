@@ -18,23 +18,39 @@ export class GrayWhaleService {
   }
 
   /**
+   * Start a new Gray Whale session for fresh recommendations
+   */
+  public startNewSession(): void {
+    if (grayWhaleApiClient.hasValidConfig()) {
+      grayWhaleApiClient.startNewSession();
+    }
+  }
+
+  /**
    * Get outfit recommendations using Gray Whale algorithm
    */
   async getRecommendations(
-    preferences: UserPreferences
+    preferences: UserPreferences,
+    page: number = 1,
+    batchCount: number = 3
   ): Promise<OutfitRecommendation[]> {
     try {
       // If configured, use the Gray Whale API client (ProductGenius hackathon feed)
       if (grayWhaleApiClient.hasValidConfig()) {
         console.log(
-          "🔧 GrayWhaleService: API client has valid config, calling fetchRecommendations..."
+          "🔧 GrayWhaleService: API client has valid config, calling fetchRecommendations...",
+          { page, batchCount }
         );
         const apiRecs = await grayWhaleApiClient.fetchRecommendations(
-          preferences
+          preferences,
+          page,
+          batchCount
         );
         console.log("🔧 GrayWhaleService: fetchRecommendations returned:", {
           hasResults: !!apiRecs,
           count: apiRecs?.length || 0,
+          page,
+          batchCount,
           firstResult: apiRecs?.[0]
             ? {
                 id: apiRecs[0].id,
@@ -47,9 +63,11 @@ export class GrayWhaleService {
       } else {
         console.log("🔧 GrayWhaleService: API client has NO valid config");
       }
-      // Fallback to mock data
-      console.log("🔧 GrayWhaleService: Falling back to mock data");
-      return this.getMockRecommendations(preferences);
+      // Fallback to mock data (limit to requested batch size)
+      console.log("🔧 GrayWhaleService: Falling back to mock data", {
+        batchCount,
+      });
+      return this.getMockRecommendations(preferences, [], [], batchCount);
 
       // Uncomment for actual API integration:
       /*
@@ -157,7 +175,8 @@ export class GrayWhaleService {
   private getMockRecommendations(
     preferences: UserPreferences,
     likedOutfits: string[] = [],
-    dislikedOutfits: string[] = []
+    dislikedOutfits: string[] = [],
+    batchCount: number = 3
   ): OutfitRecommendation[] {
     // This would be replaced with actual Gray Whale algorithm integration
     const mockRecommendations: OutfitRecommendation[] = [
@@ -198,10 +217,10 @@ export class GrayWhaleService {
       // Add more mock recommendations based on event type
     ];
 
-    // Filter out disliked outfits and boost liked ones
-    return mockRecommendations.filter(
-      (rec) => !dislikedOutfits.includes(rec.id)
-    );
+    // Filter out disliked outfits and limit to batch count
+    return mockRecommendations
+      .filter((rec) => !dislikedOutfits.includes(rec.id))
+      .slice(0, batchCount);
   }
 }
 

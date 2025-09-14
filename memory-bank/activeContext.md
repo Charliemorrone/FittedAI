@@ -31,6 +31,16 @@
 - ✅ **Gray Whale API Priority** - API-first approach with enhanced item data mapping
 - ✅ **Smart Shopping Integration** - Gray Whale responses now include detailed purchase data
 
+## Latest Updates (September 2025)
+
+- ✅ **Gray Whale API Data Structure Update** - Fixed parsing of actual API response structure with product.product_url and product.attributes
+- ✅ **Batch Loading System** - Implemented 3-at-a-time recommendation loading for better performance
+- ✅ **Smart Image Fallback** - Enhanced image loading with fallback to attribute images when product_url is empty
+- ✅ **Clean Card Interface** - Removed description and confidence overlays for photo-only swipeable cards
+- ✅ **Consistent Image Fitting** - Applied resizeMode: 'contain' to both recommendation and purchase screen images
+- ✅ **Flexible Attribute Parsing** - Support for both singular and plural attribute names (image_url/image_urls)
+- ✅ **Auto-pagination** - Seamless loading of more recommendations when approaching end of current batch
+
 ## Next Steps
 
 1. Create splash screen for app launch

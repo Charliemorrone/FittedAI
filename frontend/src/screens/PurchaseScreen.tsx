@@ -336,7 +336,7 @@ export default function PurchaseScreen({ navigation, route }: Props) {
                 onLoad={() => handleImageLoad(item.id)}
                 onLoadStart={() => console.log(`Loading started for ${item.name}`)}
                 onLoadEnd={() => console.log(`Loading ended for ${item.name}`)}
-                resizeMode="cover"
+                resizeMode="contain"
               />
               {loadingImages.has(item.id) && (
                 <View style={styles.loadingOverlay}>
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 8,
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
   selectedOverlay: {
     position: 'absolute',

@@ -76,15 +76,37 @@ export class GrayWhaleApiClient {
     return !!this.config;
   }
 
+  /**
+   * Start a new session - generates new session ID for fresh recommendations
+   */
+  public startNewSession(): void {
+    this.sessionId = GrayWhaleApiClient.generateSessionId();
+    console.log("🔄 Gray Whale: Started new session:", this.sessionId);
+  }
+
+  /**
+   * Get current session ID
+   */
+  public getCurrentSessionId(): string {
+    return this.sessionId;
+  }
+
   public async fetchRecommendations(
-    preferences: UserPreferences
+    preferences: UserPreferences,
+    page: number = 1,
+    batchCount: number = 3
   ): Promise<OutfitRecommendation[]> {
     if (!this.config) return [];
     const url = this.buildFeedUrl(preferences.grayWhaleProjectKey);
     const body = {
-      page: 1,
-      batch_count: 10,
-      // Optionally pass preferences for server-side personalization
+      page: page,
+      batch_count: batchCount,
+      // Primary prompt/query that drives recommendations
+      prompt: preferences.stylePrompt || "",
+      query: preferences.stylePrompt || "",
+      // Event context for better recommendations
+      event_type: preferences.eventType,
+      // Optionally pass full preferences for server-side personalization
       preferences,
     };
 
@@ -256,28 +278,38 @@ export class GrayWhaleApiClient {
     // Enhanced mapping that handles Gray Whale's actual API response structure
     const recs: OutfitRecommendation[] = cards
       .map((card: any, idx: number) => {
-        // Handle Gray Whale's actual structure with product object
-        const product = card?.product;
+        // CORRECT STRUCTURE: Use product.product_url as main outfit image, with smart fallbacks
+        let imageUrl = card?.product?.product_url;
 
-        const imageUrl =
-          product?.image_url ||
-          card?.imageUrl ||
-          card?.image_url ||
-          card?.image ||
-          card?.thumbnail ||
-          "https://via.placeholder.com/300x500/6366f1/FFFFFF?text=Gray+Whale+Rec";
+        // If product_url is empty, try to use the first image from attributes as fallback
+        if (!imageUrl || imageUrl.trim() === "") {
+          const imageUrlAttribute = card?.product?.attributes?.find(
+            (attr: any) =>
+              attr.name === "image_url" || attr.name === "image_urls"
+          );
+          if (imageUrlAttribute?.value) {
+            const firstImage = imageUrlAttribute.value.split(", ")[0]?.trim();
+            if (firstImage) {
+              imageUrl = firstImage;
+              console.log(
+                "🖼️ Using first attribute image as main image:",
+                firstImage
+              );
+            }
+          }
+        }
+
+        // Final fallback to placeholder
+        if (!imageUrl || imageUrl.trim() === "") {
+          imageUrl =
+            "https://via.placeholder.com/300x500/6366f1/FFFFFF?text=Gray+Whale+Rec";
+        }
 
         const title =
-          product?.title ||
-          card?.title ||
-          card?.name ||
-          card?.heading ||
-          "Gray Whale Recommendation";
-
+          card?.product?.title || card?.title || "Gray Whale Recommendation";
         const description =
-          product?.body ||
-          product?.summary ||
-          product?.subtitle ||
+          card?.product?.body ||
+          card?.product?.summary ||
           card?.description ||
           title;
 
@@ -288,15 +320,10 @@ export class GrayWhaleApiClient {
             : 0.85; // Higher default confidence for Gray Whale
 
         const id = String(
-          card?.id ||
-            product?.sku ||
-            product?.product_id ||
-            card?.sku ||
-            card?.asin ||
-            `gw_${Date.now()}_${idx}`
+          card?.id || card?.product?.sku || `gw_${Date.now()}_${idx}`
         );
 
-        // Extract shopping items from Gray Whale card structure
+        // Extract shopping items from Gray Whale card's product.attributes structure
         const items = this.extractItemsFromCard(card, idx);
 
         return {
@@ -318,11 +345,13 @@ export class GrayWhaleApiClient {
         styleDescription: rec.styleDescription,
         confidence: rec.confidence,
         itemsCount: rec.items.length,
+        mainImageUrl: rec.imageUrl,
         items: rec.items.map((item) => ({
           name: item.name,
           category: item.category,
           price: item.price,
           amazonUrl: item.amazonUrl,
+          imageUrl: item.imageUrl,
         })),
       })),
     });
@@ -331,171 +360,184 @@ export class GrayWhaleApiClient {
   }
 
   private extractItemsFromCard(card: any, idx: number): any[] {
-    // Handle Gray Whale's actual response structure with product.attributes
+    // Handle CORRECT Gray Whale API structure with product.attributes containing comma-separated arrays
     const items: any[] = [];
 
-    // Method 1: Handle Gray Whale's actual structure with product object
-    if (card?.product) {
-      const product = card.product;
-      const attributes = product.attributes || [];
+    if (!card?.product?.attributes || !Array.isArray(card.product.attributes)) {
+      console.warn("🔍 No product.attributes found in card:", card?.id);
+      return this.createFallbackItem(card, idx);
+    }
 
-      // Extract Amazon URLs from attributes
-      const amazonUrls = attributes
-        .filter((attr: any) => attr.name?.includes("_url"))
-        .map((attr: any) => ({
-          type: attr.name.replace("_url", ""),
-          url: attr.value,
-        }));
+    // Extract comma-separated image URLs and external URLs from product.attributes
+    // Handle both singular and plural attribute names
+    const imageUrlAttribute = card.product.attributes.find(
+      (attr: any) => attr.name === "image_url" || attr.name === "image_urls"
+    );
+    const externalUrlAttribute = card.product.attributes.find(
+      (attr: any) =>
+        attr.name === "external_url" || attr.name === "external_urls"
+    );
+    const typeAttribute = card.product.attributes.find(
+      (attr: any) => attr.name === "type"
+    );
+    const styleAttribute = card.product.attributes.find(
+      (attr: any) => attr.name === "style"
+    );
+    const colorAttribute = card.product.attributes.find(
+      (attr: any) => attr.name === "color"
+    );
 
-      // Create items from the Amazon URLs
-      amazonUrls.forEach((urlInfo: any, itemIdx: number) => {
-        items.push({
-          id: `${product.sku || card.id}_${urlInfo.type}`,
-          name: this.getItemNameFromType(urlInfo.type, product.title),
-          brand: this.extractBrandFromTitle(product.title) || "Brand",
-          price: 0, // No price data in response, will show "See Amazon for price"
-          imageUrl:
-            product.image_url ||
-            `https://via.placeholder.com/300x400/6366f1/FFFFFF?text=${encodeURIComponent(
-              urlInfo.type
-            )}`,
-          amazonUrl: urlInfo.url,
-          category: this.mapTypeToCategory(urlInfo.type),
-          colors: ["Multi"],
-          sizes: this.getDefaultSizes(urlInfo.type),
-        });
+    // Parse comma-separated arrays
+    const imageUrls = imageUrlAttribute?.value
+      ? imageUrlAttribute.value.split(", ").map((url: string) => url.trim())
+      : [];
+    const externalUrls = externalUrlAttribute?.value
+      ? externalUrlAttribute.value.split(", ").map((url: string) => url.trim())
+      : [];
+    const types = typeAttribute?.value
+      ? typeAttribute.value.split(", ").map((type: string) => type.trim())
+      : [];
+    const styles = styleAttribute?.value
+      ? styleAttribute.value.split(", ").map((style: string) => style.trim())
+      : [];
+    const colors = colorAttribute?.value
+      ? colorAttribute.value.split(", ").map((color: string) => color.trim())
+      : ["Multi"];
+
+    console.log("🔍 PARSING PRODUCT ATTRIBUTES:", {
+      cardId: card?.id,
+      productTitle: card?.product?.title,
+      imageUrlsCount: imageUrls.length,
+      externalUrlsCount: externalUrls.length,
+      typesCount: types.length,
+      imageUrls: imageUrls,
+      externalUrls: externalUrls,
+      types: types,
+      styles: styles,
+      colors: colors,
+    });
+
+    // Create items by matching arrays (assume they're in same order)
+    const maxItems = Math.max(
+      imageUrls.length,
+      externalUrls.length,
+      types.length
+    );
+
+    for (let i = 0; i < maxItems; i++) {
+      const itemType = types[i] || `Item ${i + 1}`;
+      const itemStyle = styles[i] || "";
+      const itemImageUrl =
+        imageUrls[i] ||
+        `https://via.placeholder.com/300x400/6366f1/FFFFFF?text=${encodeURIComponent(
+          itemType
+        )}`;
+      const itemExternalUrl = externalUrls[i] || "#";
+
+      items.push({
+        id: `${card.id}_item_${i}`,
+        name: this.generateItemName(itemType, itemStyle, card.product.title),
+        brand: this.extractBrandFromTitle(card.product.title) || "Gray Whale",
+        price: 0, // No price data available - will show "See Amazon for price"
+        imageUrl: itemImageUrl,
+        amazonUrl: itemExternalUrl,
+        category: this.mapTypeToCategory(itemType),
+        colors: colors,
+        sizes: this.getDefaultSizes(itemType),
       });
+    }
 
-      console.log("🔍 EXTRACTED ITEMS DEBUG:", {
-        cardId: card?.id,
-        productTitle: card?.product?.title,
-        attributesFound: attributes.length,
-        amazonUrlsFound: amazonUrls.length,
-        amazonUrls: amazonUrls,
-        createdItems: items.length,
-        itemDetails: items.map((item) => ({
-          id: item.id,
-          name: item.name,
-          category: item.category,
-          amazonUrl: item.amazonUrl,
-        })),
-      });
+    console.log("🔍 EXTRACTED ITEMS:", {
+      cardId: card?.id,
+      itemsCreated: items.length,
+      items: items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        amazonUrl: item.amazonUrl,
+        imageUrl: item.imageUrl,
+      })),
+    });
 
-      // If no individual items found, create one item for the whole outfit
-      if (items.length === 0) {
-        items.push({
-          id: product.sku || card.id || `gw_outfit_${idx}`,
-          name: product.title || "Complete Outfit",
-          brand: "Gray Whale",
-          price: 0,
-          imageUrl:
-            product.image_url ||
-            "https://via.placeholder.com/300x400/6366f1/FFFFFF?text=Complete+Outfit",
-          amazonUrl: "#", // No single URL for complete outfit
-          category: "top" as const,
-          colors: ["Multi"],
-          sizes: ["M", "L"],
-        });
+    // If no items were created, create a fallback
+    if (items.length === 0) {
+      return this.createFallbackItem(card, idx);
+    }
+
+    return items;
+  }
+
+  private createFallbackItem(card: any, idx: number): any[] {
+    // Smart image selection for fallback items too
+    let fallbackImageUrl = card?.product?.product_url;
+
+    if (!fallbackImageUrl || fallbackImageUrl.trim() === "") {
+      const imageUrlAttribute = card?.product?.attributes?.find(
+        (attr: any) => attr.name === "image_url" || attr.name === "image_urls"
+      );
+      if (imageUrlAttribute?.value) {
+        const firstImage = imageUrlAttribute.value.split(", ")[0]?.trim();
+        if (firstImage) {
+          fallbackImageUrl = firstImage;
+        }
       }
     }
-    // Method 2: Check if card has items array (fallback for other structures)
-    else if (Array.isArray(card?.items)) {
-      return card.items.map((item: any, itemIdx: number) => ({
-        id: item?.id || item?.sku || item?.asin || `gw_item_${idx}_${itemIdx}`,
-        name:
-          item?.title ||
-          item?.name ||
-          item?.product_name ||
-          `Gray Whale Item ${itemIdx + 1}`,
-        brand:
-          item?.brand ||
-          this.extractBrandFromTitle(item?.title || item?.name) ||
-          "Brand",
-        price:
-          this.parsePrice(item?.price) ||
-          this.estimatePriceByCategory(item?.category),
-        imageUrl:
-          item?.imageUrl ||
-          item?.image_url ||
-          item?.image ||
-          item?.thumbnail ||
-          `https://via.placeholder.com/300x400/6366f1/FFFFFF?text=${encodeURIComponent(
-            item?.title || "Item"
-          )}`,
-        amazonUrl:
-          item?.amazonUrl ||
-          item?.external_url ||
-          item?.product_url ||
-          item?.url ||
-          "#",
-        category: this.mapToStandardCategory(item?.category || item?.type),
-        colors: Array.isArray(item?.colors)
-          ? item.colors
-          : item?.color
-          ? [item.color]
-          : ["Multi"],
-        sizes: Array.isArray(item?.sizes)
-          ? item.sizes
-          : this.getDefaultSizes(item?.category),
-      }));
-    }
-    // Method 3: Check if card itself represents a single item (fallback)
-    else if (card?.amazonUrl || card?.external_url || card?.product_url) {
-      items.push({
-        id: card?.id || card?.sku || card?.asin || `gw_single_${idx}`,
-        name:
-          card?.title ||
-          card?.name ||
-          card?.product_name ||
-          "Gray Whale Recommendation",
-        brand:
-          card?.brand || this.extractBrandFromTitle(card?.title) || "Brand",
-        price: this.parsePrice(card?.price) || 89.99,
-        imageUrl:
-          card?.imageUrl ||
-          card?.image_url ||
-          card?.image ||
-          card?.thumbnail ||
-          "https://via.placeholder.com/300x400/6366f1/FFFFFF?text=Gray+Whale+Item",
-        amazonUrl:
-          card?.amazonUrl ||
-          card?.external_url ||
-          card?.product_url ||
-          card?.url ||
-          "#",
-        category:
-          this.mapToStandardCategory(card?.category || card?.type) || "top",
-        colors: Array.isArray(card?.colors)
-          ? card.colors
-          : card?.color
-          ? [card.color]
-          : ["Multi"],
-        sizes: Array.isArray(card?.sizes)
-          ? card.sizes
-          : this.getDefaultSizes(card?.category),
-      });
+
+    if (!fallbackImageUrl || fallbackImageUrl.trim() === "") {
+      fallbackImageUrl =
+        "https://via.placeholder.com/300x400/6366f1/FFFFFF?text=Complete+Outfit";
     }
 
-    // Method 4: Final fallback - create a placeholder item for the outfit
-    if (items.length === 0) {
-      items.push({
+    return [
+      {
         id: `gw_outfit_${idx}`,
-        name: card?.title || card?.name || "Complete Gray Whale Outfit",
+        name:
+          card?.product?.title || card?.title || "Complete Gray Whale Outfit",
         brand: "Gray Whale",
         price: 149.99,
-        imageUrl:
-          card?.imageUrl ||
-          card?.image_url ||
-          card?.image ||
-          "https://via.placeholder.com/300x400/6366f1/FFFFFF?text=Complete+Outfit",
+        imageUrl: fallbackImageUrl,
         amazonUrl: "#", // No direct purchase link for complete outfits
         category: "top" as const,
         colors: ["Multi"],
         sizes: ["M", "L"],
-      });
+      },
+    ];
+  }
+
+  private generateItemName(
+    type: string,
+    style: string,
+    outfitTitle: string
+  ): string {
+    // Create descriptive names based on type and style
+    const typeNames: Record<string, string> = {
+      pants: "Pants",
+      Pants: "Pants",
+      kurta: "Kurta",
+      Kurta: "Kurta",
+      "Kurta Set": "Kurta Set",
+      "kurta set": "Kurta Set",
+      shoes: "Shoes",
+      Shoes: "Shoes",
+      Loafers: "Loafers",
+      loafers: "Loafers",
+      Mule: "Mules",
+      mule: "Mules",
+      Mules: "Mules",
+      Sherwani: "Sherwani",
+      sherwani: "Sherwani",
+      Mojari: "Mojari Shoes",
+      mojari: "Mojari Shoes",
+    };
+
+    const baseName =
+      typeNames[type] || type.charAt(0).toUpperCase() + type.slice(1);
+
+    if (style) {
+      return `${style} ${baseName}`;
     }
 
-    return items;
+    return baseName;
   }
 
   private getItemNameFromType(type: string, outfitTitle: string): string {
@@ -528,7 +570,11 @@ export class GrayWhaleApiClient {
     if (
       lower.includes("shoe") ||
       lower.includes("boot") ||
-      lower.includes("sandal")
+      lower.includes("sandal") ||
+      lower.includes("loafer") ||
+      lower.includes("mule") ||
+      lower.includes("mojari") ||
+      lower.includes("jutti")
     )
       return "shoes";
     if (
@@ -536,7 +582,8 @@ export class GrayWhaleApiClient {
       lower.includes("shirt") ||
       lower.includes("dress") ||
       lower.includes("jacket") ||
-      lower.includes("blazer")
+      lower.includes("blazer") ||
+      lower.includes("sherwani")
     )
       return "top";
     return "accessories";

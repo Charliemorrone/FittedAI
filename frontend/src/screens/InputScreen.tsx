@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList, UserPreferences } from '../types';
 import EventSuggestionCarousel, { EventSuggestion } from '../components/EventSuggestionCarousel';
 import { PhotoStorageService } from '../services/photoStorageService';
+import GrayWhaleService from '../services/grayWhaleService';
 
 type InputScreenNavigationProp = StackNavigationProp<RootStackParamList, 'InputScreen'>;
 
@@ -123,6 +124,8 @@ export default function InputScreen({ navigation }: Props) {
       setMessage('');
       setIsLoading(false);
       stopRotation();
+      // Note: We don't start a new session here - only when user actually submits a new prompt
+      console.log('🔄 InputScreen: Reset to initial state, ready for new prompt');
     }, [])
   );
 
@@ -279,6 +282,10 @@ export default function InputScreen({ navigation }: Props) {
     setIsLoading(true);
     setHasStartedChat(true); // Only hide suggestions when actually sending
     startRotation(); // Start hourglass rotation
+
+    // Start a new Gray Whale session for fresh recommendations
+    console.log('🔄 InputScreen: Starting new Gray Whale session for fresh recommendations');
+    GrayWhaleService.startNewSession();
 
     // Simulate Gray Whale API call
     setTimeout(async () => {
