@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -157,8 +157,16 @@ export default function RecommendationScreen({ navigation, route }: Props) {
   const [swipeActions, setSwipeActions] = useState<SwipeAction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Animation values
   const translateX = new Animated.Value(0);
   const opacity = new Animated.Value(1);
+  const scale = new Animated.Value(1);
+  
+  // Button feedback animations
+  const likeButtonScale = useRef(new Animated.Value(1)).current;
+  const dislikeButtonScale = useRef(new Animated.Value(1)).current;
+  const likeButtonOpacity = useRef(new Animated.Value(0.7)).current;
+  const dislikeButtonOpacity = useRef(new Animated.Value(0.7)).current;
 
   useEffect(() => {
     // Simulate Gray Whale algorithm processing
@@ -169,9 +177,47 @@ export default function RecommendationScreen({ navigation, route }: Props) {
     }, 2500); // Longer delay to show the enhanced loading screen
   }, [preferences]);
 
+  // Button animation helpers
+  const animateButton = (buttonScale: Animated.Value, buttonOpacity: Animated.Value, isLike: boolean) => {
+    // Scale and highlight animation
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(buttonScale, {
+          toValue: 1.2,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonOpacity, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(buttonScale, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonOpacity, {
+          toValue: 0.7,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  };
+
   const handleSwipe = (direction: 'left' | 'right') => {
     const currentOutfit = recommendations[currentIndex];
     if (!currentOutfit) return;
+
+    // Animate corresponding button
+    if (direction === 'right') {
+      animateButton(likeButtonScale, likeButtonOpacity, true);
+    } else {
+      animateButton(dislikeButtonScale, dislikeButtonOpacity, false);
+    }
 
     const action: SwipeAction = {
       outfitId: currentOutfit.id,
@@ -181,16 +227,21 @@ export default function RecommendationScreen({ navigation, route }: Props) {
 
     setSwipeActions(prev => [...prev, action]);
 
-    // Animate card out
+    // Animate card out with enhanced animations
     Animated.parallel([
       Animated.timing(translateX, {
-        toValue: direction === 'right' ? width : -width,
-        duration: 300,
+        toValue: direction === 'right' ? width * 1.2 : -width * 1.2,
+        duration: 400,
         useNativeDriver: true,
       }),
       Animated.timing(opacity, {
         toValue: 0,
-        duration: 300,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scale, {
+        toValue: 0.8,
+        duration: 400,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -199,6 +250,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         setCurrentIndex(currentIndex + 1);
         translateX.setValue(0);
         opacity.setValue(1);
+        scale.setValue(1);
       } else {
         // No more recommendations, show purchase option
         Alert.alert(
@@ -245,17 +297,34 @@ export default function RecommendationScreen({ navigation, route }: Props) {
 
   const onHandlerStateChange = (event: any) => {
     if (event.nativeEvent.state === State.END) {
-      const { translationX } = event.nativeEvent;
+      const { translationX, velocityX } = event.nativeEvent;
       
-      if (Math.abs(translationX) > SWIPE_THRESHOLD) {
+      // Consider both distance and velocity for more natural swipe detection
+      const shouldSwipe = Math.abs(translationX) > SWIPE_THRESHOLD || Math.abs(velocityX) > 800;
+      
+      if (shouldSwipe) {
         handleSwipe(translationX > 0 ? 'right' : 'left');
       } else {
-        // Snap back to center
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
+        // Snap back to center with spring animation
+        Animated.parallel([
+          Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 100,
+            friction: 8,
+          }),
+          Animated.spring(scale, {
+            toValue: 1,
+            useNativeDriver: true,
+            tension: 100,
+            friction: 8,
+          }),
+        ]).start();
       }
+    } else if (event.nativeEvent.state === State.ACTIVE) {
+      // Add subtle scale effect during drag
+      const dragScale = 1 - Math.abs(event.nativeEvent.translationX) / (width * 3);
+      scale.setValue(Math.max(0.95, dragScale));
     }
   };
 
@@ -303,7 +372,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* Minimal Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
@@ -312,13 +381,28 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Recommendations</Text>
-          <Text style={styles.headerSubtitle}>"{preferences.stylePrompt}"</Text>
+          <Text style={styles.headerTitle}>Style Matches</Text>
         </View>
-        <View style={styles.headerRight} />
+        <View style={styles.progressIndicator}>
+          <Text style={styles.progressText}>
+            {currentIndex + 1}/{recommendations.length}
+          </Text>
+        </View>
       </View>
 
-      <View style={styles.cardContainer}>
+      {/* Card Stack Container */}
+      <View style={styles.cardStackContainer}>
+        {/* Background Cards for Stack Effect */}
+        {currentIndex + 1 < recommendations.length && (
+          <View style={[styles.outfitCard, styles.backgroundCard, { transform: [{ scale: 0.95 }] }]}>
+            <Image 
+              source={{ uri: recommendations[currentIndex + 1].imageUrl }} 
+              style={styles.outfitImage} 
+            />
+          </View>
+        )}
+        
+        {/* Main Swipeable Card */}
         <PanGestureHandler
           onGestureEvent={onGestureEvent}
           onHandlerStateChange={onHandlerStateChange}
@@ -326,58 +410,100 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           <Animated.View
             style={[
               styles.outfitCard,
+              styles.mainCard,
               {
-                transform: [{ translateX }],
+                transform: [
+                  { translateX },
+                  { scale },
+                  { 
+                    rotate: translateX.interpolate({
+                      inputRange: [-width, 0, width],
+                      outputRange: ['-15deg', '0deg', '15deg'],
+                      extrapolate: 'clamp',
+                    })
+                  }
+                ],
                 opacity,
               },
             ]}
           >
             <Image source={{ uri: currentOutfit.imageUrl }} style={styles.outfitImage} />
-            <View style={styles.outfitInfo}>
+            
+            {/* Swipe Indicators */}
+            <Animated.View 
+              style={[
+                styles.swipeIndicator,
+                styles.likeIndicator,
+                {
+                  opacity: translateX.interpolate({
+                    inputRange: [0, width / 4],
+                    outputRange: [0, 1],
+                    extrapolate: 'clamp',
+                  }),
+                }
+              ]}
+            >
+              <Ionicons name="heart" size={32} color="#10b981" />
+              <Text style={[styles.indicatorText, { color: '#10b981' }]}>LIKE</Text>
+            </Animated.View>
+            
+            <Animated.View 
+              style={[
+                styles.swipeIndicator,
+                styles.dislikeIndicator,
+                {
+                  opacity: translateX.interpolate({
+                    inputRange: [-width / 4, 0],
+                    outputRange: [1, 0],
+                    extrapolate: 'clamp',
+                  }),
+                }
+              ]}
+            >
+              <Ionicons name="close" size={32} color="#ef4444" />
+              <Text style={[styles.indicatorText, { color: '#ef4444' }]}>PASS</Text>
+            </Animated.View>
+
+            {/* Outfit Info Overlay */}
+            <View style={styles.outfitInfoOverlay}>
               <Text style={styles.outfitDescription}>{currentOutfit.styleDescription}</Text>
               <Text style={styles.confidence}>
-                Confidence: {Math.round(currentOutfit.confidence * 100)}%
+                {Math.round(currentOutfit.confidence * 100)}% Match
               </Text>
             </View>
           </Animated.View>
         </PanGestureHandler>
       </View>
 
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.dislikeButton]}
-          onPress={() => handleSwipe('left')}
-        >
-          <Ionicons name="close" size={24} color="#ffffff" />
-        </TouchableOpacity>
+      {/* Bottom Action Bar */}
+      <View style={styles.bottomActionBar}>
+        <Animated.View style={{ transform: [{ scale: dislikeButtonScale }], opacity: dislikeButtonOpacity }}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.dislikeButton]}
+            onPress={() => handleSwipe('left')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="thumbs-down" size={24} color="#ffffff" />
+          </TouchableOpacity>
+        </Animated.View>
 
         <TouchableOpacity
-          style={[styles.actionButton, styles.purchaseButton]}
+          style={[styles.actionButton, styles.shopButton]}
           onPress={handlePurchase}
+          activeOpacity={0.8}
         >
-          <Ionicons name="bag" size={20} color="#ffffff" />
+          <Ionicons name="bag" size={24} color="#ffffff" />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.actionButton, styles.likeButton]}
-          onPress={() => handleSwipe('right')}
-        >
-          <Ionicons name="heart" size={20} color="#ffffff" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.progressContainer}>
-        <Text style={styles.progressText}>
-          {currentIndex + 1} of {recommendations.length}
-        </Text>
-        <View style={styles.progressBar}>
-          <View 
-            style={[
-              styles.progressFill, 
-              { width: `${((currentIndex + 1) / recommendations.length) * 100}%` }
-            ]} 
-          />
-        </View>
+        <Animated.View style={{ transform: [{ scale: likeButtonScale }], opacity: likeButtonOpacity }}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.likeButton]}
+            onPress={() => handleSwipe('right')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="thumbs-up" size={24} color="#ffffff" />
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     </SafeAreaView>
   );
@@ -386,13 +512,13 @@ export default function RecommendationScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8fafc',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8fafc',
     padding: 40,
   },
   loadingIcon: {
@@ -423,13 +549,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 32,
   },
-  progressIndicator: {
-    width: '100%',
-    height: 4,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
   progressBar: {
     width: '100%',
     height: '100%',
@@ -440,7 +559,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8fafc',
     padding: 40,
   },
   emptyIcon: {
@@ -457,19 +576,22 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginBottom: 32,
   },
+  // New Modern Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: '#e2e8f0',
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#f1f5f9',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -478,80 +600,135 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#111827',
   },
-  headerSubtitle: {
+  progressIndicator: {
+    alignItems: 'center',
+  },
+  progressText: {
     fontSize: 14,
+    fontWeight: '600',
     color: '#6b7280',
-    marginTop: 2,
   },
-  headerRight: {
-    width: 40,
-  },
-  cardContainer: {
+  // Card Stack Container
+  cardStackContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
+    paddingVertical: 20,
   },
   outfitCard: {
     width: width - 40,
-    height: height * 0.6,
+    height: height * 0.65,
     backgroundColor: '#ffffff',
-    borderRadius: 20,
+    borderRadius: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 15,
     overflow: 'hidden',
+    position: 'absolute',
+  },
+  backgroundCard: {
+    opacity: 0.8,
+    zIndex: 1,
+  },
+  mainCard: {
+    zIndex: 2,
   },
   outfitImage: {
     width: '100%',
-    height: '80%',
+    height: '100%',
     resizeMode: 'cover',
   },
-  outfitInfo: {
-    padding: 20,
-    height: '20%',
-    justifyContent: 'center',
+  // Swipe Indicators
+  swipeIndicator: {
+    position: 'absolute',
+    top: 60,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  likeIndicator: {
+    right: 30,
+  },
+  dislikeIndicator: {
+    left: 30,
+  },
+  indicatorText: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 4,
+    letterSpacing: 1,
+  },
+  // Outfit Info Overlay
+  outfitInfoOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 24,
   },
   outfitDescription: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
+    color: '#ffffff',
+    marginBottom: 6,
+    lineHeight: 24,
   },
   confidence: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#e2e8f0',
+    fontWeight: '500',
   },
-  actionButtons: {
+  // Bottom Action Bar
+  bottomActionBar: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
-    paddingVertical: 20,
+    paddingVertical: 30,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
   },
   actionButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    marginHorizontal: 16,
   },
   dislikeButton: {
     backgroundColor: '#ef4444',
   },
   likeButton: {
     backgroundColor: '#10b981',
+  },
+  shopButton: {
+    backgroundColor: '#6366f1',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    marginHorizontal: 20,
   },
   purchaseButton: {
     backgroundColor: '#111827',
@@ -566,23 +743,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
-  },
-  actionButtonText: {
-    fontSize: 24,
-  },
-  progressContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  progressText: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#6366f1',
-    borderRadius: 2,
   },
 });

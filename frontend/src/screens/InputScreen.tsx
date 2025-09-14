@@ -19,7 +19,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList, UserPreferences } from '../types';
 import EventSuggestionCarousel, { EventSuggestion } from '../components/EventSuggestionCarousel';
-import PhotoSelectionModal from '../components/PhotoSelectionModal';
 import { PhotoStorageService } from '../services/photoStorageService';
 
 type InputScreenNavigationProp = StackNavigationProp<RootStackParamList, 'InputScreen'>;
@@ -46,7 +45,7 @@ export default function InputScreen({ navigation }: Props) {
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasStartedChat, setHasStartedChat] = useState(false);
-  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   const loadStoredPhoto = async () => {
@@ -77,64 +76,118 @@ export default function InputScreen({ navigation }: Props) {
     }, [])
   );
 
-  const handleTakePhoto = () => {
+  const handleTakePhoto = async () => {
     console.log('📸 InputScreen: Take photo button pressed');
-    setShowPhotoModal(false);
-    console.log('🚀 InputScreen: Navigating to CameraScreen...');
-    navigation.navigate('CameraScreen');
-    console.log('✅ InputScreen: Navigation call completed');
+    
+    try {
+      console.log('🔐 InputScreen: Requesting camera permissions...');
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      console.log('🔐 InputScreen: Camera permission result:', permissionResult);
+      
+      if (permissionResult.granted === false) {
+        console.log('❌ InputScreen: Camera permission denied');
+        Alert.alert('Permission Required', 'Permission to access camera is required!');
+        return;
+      }
+
+      console.log('📱 InputScreen: Launching camera directly...');
+      
+      // Add timeout to detect if ImagePicker is hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Camera timeout after 10 seconds')), 10000);
+      });
+      
+      const result = await Promise.race([
+        ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 0.8,
+        }),
+        timeoutPromise
+      ]) as ImagePicker.ImagePickerResult;
+      
+      console.log('📱 InputScreen: Camera result:', result);
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const photoUri = result.assets[0].uri;
+        console.log('📷 InputScreen: Photo taken, URI:', photoUri);
+        
+        // Save photo to local storage
+        console.log('💾 InputScreen: Saving photo to storage...');
+        await PhotoStorageService.saveReferencePhoto(photoUri);
+        setReferenceImage(photoUri);
+        console.log('✅ InputScreen: Photo saved and set in state successfully');
+      } else {
+        console.log('❌ InputScreen: Camera was canceled');
+      }
+    } catch (error) {
+      console.error('💥 InputScreen: Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo. Please try again.');
+    }
   };
 
   const handleChooseFromGallery = async () => {
     console.log('🖼️ InputScreen: Choose from gallery button pressed');
-    setShowPhotoModal(false);
-    console.log('🔐 InputScreen: Requesting media library permissions...');
     
     try {
+      // Request media library permissions first
+      console.log('🔐 InputScreen: Requesting media library permissions...');
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      console.log('🔐 InputScreen: Permission result:', permissionResult);
+      console.log('🔐 InputScreen: Media library permission result:', permissionResult);
+      console.log('🔐 InputScreen: Permission granted:', permissionResult.granted);
+      console.log('🔐 InputScreen: Permission status:', permissionResult.status);
       
       if (permissionResult.granted === false) {
         console.log('❌ InputScreen: Media library permission denied');
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        Alert.alert('Permission Required', 'Permission to access photo library is required!');
         return;
       }
 
-      console.log('📱 InputScreen: Launching image library...');
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
+      console.log('📱 InputScreen: Permissions OK, launching image library...');
+      console.log('📱 InputScreen: About to call launchImageLibraryAsync...');
+      
+      // Add timeout to detect if ImagePicker is hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('ImagePicker timeout after 10 seconds')), 10000);
       });
       
-      console.log('📱 InputScreen: Image picker result:', result);
-
-      if (!result.canceled) {
+      const result = await Promise.race([
+        ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: false,
+          quality: 0.5,
+        }),
+        timeoutPromise
+      ]) as ImagePicker.ImagePickerResult;
+      
+      console.log('📱 InputScreen: Image picker completed successfully!');
+      console.log('📱 InputScreen: Full result object:', JSON.stringify(result, null, 2));
+      console.log('📱 InputScreen: Result canceled:', result.canceled);
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
         const photoUri = result.assets[0].uri;
-        console.log('📷 InputScreen: Selected photo URI:', photoUri);
-        setReferenceImage(photoUri);
-        console.log('✅ InputScreen: Photo set in state');
+        console.log('📷 InputScreen: Got photo URI:', photoUri);
+        console.log('📷 InputScreen: Saving to storage...');
         
-        // Save to local storage
-        try {
-          console.log('💾 InputScreen: Saving photo to storage...');
-          await PhotoStorageService.saveReferencePhoto(photoUri);
-          console.log('✅ InputScreen: Photo saved to storage successfully');
-        } catch (error) {
-          console.error('💥 InputScreen: Error saving photo to storage:', error);
-        }
+        // Save to storage like camera does
+        await PhotoStorageService.saveReferencePhoto(photoUri);
+        setReferenceImage(photoUri);
+        console.log('✅ InputScreen: Photo saved and set in state successfully');
       } else {
-        console.log('❌ InputScreen: Image picker was canceled');
+        console.log('❌ InputScreen: No photo selected or result was canceled');
       }
     } catch (error) {
-      console.error('💥 InputScreen: Error in handleChooseFromGallery:', error);
+      console.error('💥 InputScreen: Gallery selection error:', error);
+      console.error('💥 InputScreen: Error details:', JSON.stringify(error, null, 2));
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Failed to select photo from gallery: ${errorMessage}`);
     }
   };
 
   const handlePhotoButtonPress = () => {
-    console.log('🎯 InputScreen: Photo button pressed - showing modal');
-    setShowPhotoModal(true);
+    console.log('🎯 InputScreen: Photo button pressed - toggling options');
+    setShowPhotoOptions(!showPhotoOptions);
   };
 
   const clearPhoto = async () => {
@@ -309,13 +362,56 @@ export default function InputScreen({ navigation }: Props) {
           </View>
         </View>
 
-        {/* Photo Selection Modal */}
-        <PhotoSelectionModal
-          visible={showPhotoModal}
-          onClose={() => setShowPhotoModal(false)}
-          onTakePhoto={handleTakePhoto}
-          onChooseFromGallery={handleChooseFromGallery}
-        />
+        {/* Photo Options */}
+        {showPhotoOptions && (
+          <View style={styles.photoOptionsOverlay}>
+            <TouchableOpacity 
+              style={styles.photoOptionsBackdrop} 
+              onPress={() => setShowPhotoOptions(false)}
+            />
+            <View style={styles.photoOptionsContainer}>
+              <Text style={styles.photoOptionsTitle}>Add Photo</Text>
+              
+              <TouchableOpacity 
+                style={styles.photoOption} 
+                onPress={() => {
+                  console.log('📸 Direct: Take Photo button pressed');
+                  setShowPhotoOptions(false);
+                  handleTakePhoto();
+                }}
+              >
+                <View style={styles.photoOptionIcon}>
+                  <Ionicons name="camera" size={24} color="#111827" />
+                </View>
+                <Text style={styles.photoOptionText}>Take Photo</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.photoOption} 
+                onPress={() => {
+                  console.log('🖼️ Direct: Choose from Gallery button pressed');
+                  setShowPhotoOptions(false);
+                  handleChooseFromGallery();
+                }}
+              >
+                <View style={styles.photoOptionIcon}>
+                  <Ionicons name="images" size={24} color="#111827" />
+                </View>
+                <Text style={styles.photoOptionText}>Choose from Gallery</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.photoOptionCancel} 
+                onPress={() => {
+                  console.log('❌ Direct: Cancel button pressed');
+                  setShowPhotoOptions(false);
+                }}
+              >
+                <Text style={styles.photoOptionCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -496,5 +592,79 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#d1d5db',
+  },
+  photoOptionsOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  photoOptionsBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  photoOptionsContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 24,
+    marginHorizontal: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+    minWidth: 280,
+  },
+  photoOptionsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  photoOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#f9fafb',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  photoOptionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  photoOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  photoOptionCancel: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  photoOptionCancelText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#6b7280',
   },
 });

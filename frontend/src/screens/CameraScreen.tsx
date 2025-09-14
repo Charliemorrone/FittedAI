@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,17 +26,19 @@ interface Props {
 }
 
 export default function CameraScreen({ navigation }: Props) {
-  const [cameraType, setCameraType] = useState<'front' | 'back'>('front');
+  const [isLaunching, setIsLaunching] = useState(false);
 
   useEffect(() => {
     console.log('📸 CameraScreen: Component mounted, auto-launching camera...');
-    // Auto-launch camera when screen loads
-    takePicture();
+    // Auto-launch camera immediately when screen loads
+    launchCamera();
   }, []);
 
-  const takePicture = async () => {
-    console.log('📸 CameraScreen: takePicture function called');
-    console.log('📸 CameraScreen: Current camera type:', cameraType);
+  const launchCamera = async () => {
+    if (isLaunching) return; // Prevent multiple launches
+    
+    setIsLaunching(true);
+    console.log('📸 CameraScreen: launchCamera function called');
     
     try {
       console.log('🔐 CameraScreen: Requesting camera permissions...');
@@ -50,21 +52,18 @@ export default function CameraScreen({ navigation }: Props) {
         return;
       }
 
-      console.log('📱 CameraScreen: Launching camera with options:', {
-        cameraType: cameraType === 'front' ? 'front' : 'back'
-      });
+      console.log('📱 CameraScreen: Launching camera...');
       
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
-        cameraType: cameraType === 'front' ? ImagePicker.CameraType.front : ImagePicker.CameraType.back,
       });
       
       console.log('📱 CameraScreen: Camera result:', result);
 
-      if (!result.canceled) {
+      if (!result.canceled && result.assets && result.assets[0]) {
         const photoUri = result.assets[0].uri;
         console.log('📷 CameraScreen: Photo taken, URI:', photoUri);
         
@@ -78,19 +77,12 @@ export default function CameraScreen({ navigation }: Props) {
         navigation.goBack();
       }
     } catch (error) {
-      console.error('💥 CameraScreen: Error in takePicture:', error);
+      console.error('💥 CameraScreen: Error in launchCamera:', error);
       Alert.alert('Error', 'Failed to take photo. Please try again.');
       navigation.goBack();
+    } finally {
+      setIsLaunching(false);
     }
-  };
-
-  const toggleCameraType = () => {
-    const newType = cameraType === 'front' ? 'back' : 'front';
-    console.log('🔄 CameraScreen: Toggling camera type from', cameraType, 'to', newType);
-    setCameraType(newType);
-    // Relaunch camera with new type
-    console.log('⏱️ CameraScreen: Relaunching camera in 100ms...');
-    setTimeout(() => takePicture(), 100);
   };
 
   const handleClose = () => {
@@ -100,48 +92,29 @@ export default function CameraScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.cameraPlaceholder}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-            <Ionicons name="close" size={24} color="#ffffff" />
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+          <Ionicons name="close" size={24} color="#ffffff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Take Photo</Text>
+        <View style={styles.placeholder} />
+      </View>
+      
+      <View style={styles.loadingContainer}>
+        <Ionicons name="camera" size={80} color="#ffffff" />
+        <Text style={styles.loadingText}>
+          {isLaunching ? 'Opening Camera...' : 'Camera Ready'}
+        </Text>
+        <Text style={styles.loadingSubtext}>
+          Tap the button below to take a photo
+        </Text>
+        
+        {!isLaunching && (
+          <TouchableOpacity style={styles.retryButton} onPress={launchCamera}>
+            <Ionicons name="camera" size={20} color="#ffffff" />
+            <Text style={styles.retryButtonText}>Take Photo</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Take Photo</Text>
-          <TouchableOpacity style={styles.flipButton} onPress={toggleCameraType}>
-            <Ionicons name="camera-reverse" size={24} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Camera Placeholder Content */}
-        <View style={styles.cameraContent}>
-          <Ionicons name="camera" size={80} color="#ffffff" />
-          <Text style={styles.cameraText}>Camera will open automatically</Text>
-          <Text style={styles.cameraSubtext}>
-            Current mode: {cameraType === 'front' ? 'Front Camera' : 'Back Camera'}
-          </Text>
-        </View>
-
-        {/* Camera Controls */}
-        <View style={styles.controls}>
-          <View style={styles.controlsContent}>
-            <View style={styles.leftControl} />
-            
-            <TouchableOpacity
-              style={styles.captureButton}
-              onPress={takePicture}
-            >
-              <View style={styles.captureButtonInner} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.flipControlButton} onPress={toggleCameraType}>
-              <Ionicons name="camera-reverse" size={28} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-          
-          <Text style={styles.instructionText}>
-            Tap flip button to switch between front and back camera
-          </Text>
-        </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -152,44 +125,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
-  cameraPlaceholder: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  cameraContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  cameraText: {
-    fontSize: 18,
-    color: '#ffffff',
-    marginTop: 20,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  cameraSubtext: {
-    fontSize: 14,
-    color: '#ffffff',
-    marginTop: 8,
-    textAlign: 'center',
-    opacity: 0.8,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    paddingVertical: 16,
     paddingTop: 20,
-    paddingBottom: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -198,61 +146,43 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
   },
-  flipButton: {
+  placeholder: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  controls: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingBottom: 40,
-    paddingTop: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
-  controlsContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 40,
-    marginBottom: 20,
   },
-  leftControl: {
-    width: 60,
+  loadingText: {
+    fontSize: 18,
+    color: '#ffffff',
+    marginTop: 20,
+    textAlign: 'center',
+    fontWeight: '500',
   },
-  captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  captureButtonInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#ffffff',
-  },
-  flipControlButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  instructionText: {
+  loadingSubtext: {
     fontSize: 14,
     color: '#ffffff',
+    marginTop: 8,
     textAlign: 'center',
     opacity: 0.8,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    marginTop: 32,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#ffffff',
+    marginLeft: 8,
   },
 });
