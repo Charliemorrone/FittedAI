@@ -693,8 +693,8 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         // Update swipe count after animation completes
         setSwipeCount((c) => {
           const newCount = c + 1;
-          // Unlock VEO feature after 3 swipes
-          if (newCount >= 3 && !veoUnlocked) {
+          // Unlock VEO feature after 8 swipes
+          if (newCount >= 8 && !veoUnlocked) {
             setVeoUnlocked(true);
             animateVeoButtonAppearance();
           }
@@ -705,8 +705,8 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         // Update swipe count after animation completes
         setSwipeCount((c) => {
           const newCount = c + 1;
-          // Unlock VEO feature after 3 swipes
-          if (newCount >= 3 && !veoUnlocked) {
+          // Unlock VEO feature after 8 swipes
+          if (newCount >= 8 && !veoUnlocked) {
             setVeoUnlocked(true);
             animateVeoButtonAppearance();
           }
