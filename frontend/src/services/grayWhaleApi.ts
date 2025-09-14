@@ -167,12 +167,27 @@ export class GrayWhaleApiClient {
 
     const url = this.buildFeedUrl();
     const body = {
-      // The skeleton accepts an `events` array during pagination; we reuse the same structure here
+      // Fix the events structure to match Gray Whale's expected format
       events: actions.map((a) => ({
-        type: "feedback",
-        action: a.action,
-        outfit_id: a.outfitId,
-        timestamp: a.timestamp,
+        event: a.action === "like" ? "item_liked" : "item_disliked", // Required: event name
+        properties: {
+          // Required: event properties for Gray Whale API
+          organization_id: this.config!.organizationId, // Required
+          visitor_id: this.sessionId, // Use session ID as visitor ID
+          id: a.outfitId, // Required: item identifier
+          item_id: a.outfitId,
+          outfit_id: a.outfitId,
+          action: a.action,
+          timestamp: a.timestamp,
+          session_id: this.sessionId,
+          weight: a.action === "like" ? 1.0 : -1.0, // Required: positive for like, negative for dislike
+          payload: {
+            // Required: additional event data
+            event_type: "swipe_feedback",
+            source: "mobile_app",
+            platform: "react_native",
+          },
+        },
       })),
     };
 
@@ -186,6 +201,11 @@ export class GrayWhaleApiClient {
         timestampRaw: a.timestamp,
       })),
       requestBody: JSON.stringify(body, null, 2),
+      eventsStructure: body.events.map((event) => ({
+        event: event.event,
+        propertiesKeys: Object.keys(event.properties),
+        properties: event.properties,
+      })),
     });
 
     try {
