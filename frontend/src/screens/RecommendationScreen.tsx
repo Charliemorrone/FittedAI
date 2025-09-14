@@ -1147,11 +1147,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Get Fitted</Text>
         </View>
-        <View style={styles.progressIndicator}>
-          <Text style={styles.progressText}>
-            {currentIndex + 1}/{totalCount}
-          </Text>
-        </View>
+        {/* Fraction indicator removed per updated UX requirements */}
       </View>
 
       {/* Card Stack Container */}
