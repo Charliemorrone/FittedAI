@@ -218,13 +218,35 @@ export default function RecommendationScreen({ navigation, route }: Props) {
       try {
         // Priority 1: Try Gray Whale API first
         console.log('🐋 Attempting Gray Whale API call...');
+        console.log('🐋 About to call Gray Whale API with preferences:', {
+          eventType: preferences.eventType,
+          stylePrompt: preferences.stylePrompt,
+          grayWhaleProjectKey: preferences.grayWhaleProjectKey
+        });
+        
         const recs = await GrayWhaleService.getRecommendations(preferences);
+        
+        console.log('🐋 Gray Whale Service returned:', {
+          recommendationsCount: recs?.length || 0,
+          firstRec: recs?.[0] ? {
+            id: recs[0].id,
+            styleDescription: recs[0].styleDescription,
+            itemsCount: recs[0].items?.length || 0,
+            firstItem: recs[0].items?.[0] ? {
+              name: recs[0].items[0].name,
+              amazonUrl: recs[0].items[0].amazonUrl
+            } : null
+          } : null
+        });
+        
         if (isMounted && recs && recs.length > 0) {
           console.log('✅ Gray Whale API successful, got', recs.length, 'recommendations');
           setRecommendations(recs);
           setIsCollectionsMode(false);
           setIsLoading(false);
           return;
+        } else {
+          console.warn('⚠️ Gray Whale API returned empty or no recommendations');
         }
       } catch (e) {
         console.warn('⚠️ Gray Whale API failed, trying fallbacks:', e);

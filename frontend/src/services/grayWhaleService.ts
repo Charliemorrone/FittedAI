@@ -26,12 +26,29 @@ export class GrayWhaleService {
     try {
       // If configured, use the Gray Whale API client (ProductGenius hackathon feed)
       if (grayWhaleApiClient.hasValidConfig()) {
+        console.log(
+          "🔧 GrayWhaleService: API client has valid config, calling fetchRecommendations..."
+        );
         const apiRecs = await grayWhaleApiClient.fetchRecommendations(
           preferences
         );
+        console.log("🔧 GrayWhaleService: fetchRecommendations returned:", {
+          hasResults: !!apiRecs,
+          count: apiRecs?.length || 0,
+          firstResult: apiRecs?.[0]
+            ? {
+                id: apiRecs[0].id,
+                styleDescription: apiRecs[0].styleDescription,
+                itemsCount: apiRecs[0].items?.length || 0,
+              }
+            : null,
+        });
         if (apiRecs && apiRecs.length > 0) return apiRecs;
+      } else {
+        console.log("🔧 GrayWhaleService: API client has NO valid config");
       }
       // Fallback to mock data
+      console.log("🔧 GrayWhaleService: Falling back to mock data");
       return this.getMockRecommendations(preferences);
 
       // Uncomment for actual API integration:

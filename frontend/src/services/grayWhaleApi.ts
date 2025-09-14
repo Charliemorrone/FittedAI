@@ -32,6 +32,15 @@ export class GrayWhaleApiClient {
       (ExpoConstants as any)?.expoConfig?.extra ||
       (ExpoConstants as any)?.manifest?.extra ||
       {};
+
+    console.log("🔍 GRAY WHALE CONFIG DEBUG:", {
+      ExpoConstants: !!ExpoConstants,
+      expoConfig: !!(ExpoConstants as any)?.expoConfig,
+      manifest: !!(ExpoConstants as any)?.manifest,
+      extra: extra,
+      extraKeys: Object.keys(extra || {}),
+    });
+
     const serverURL =
       (extra.GRAY_WHALE_SERVER_URL as string | undefined) ||
       (process.env.GRAY_WHALE_SERVER_URL as string | undefined);
@@ -41,10 +50,25 @@ export class GrayWhaleApiClient {
     const accessToken =
       (extra.GRAY_WHALE_ACCESS_TOKEN as string | undefined) ||
       (process.env.GRAY_WHALE_ACCESS_TOKEN as string | undefined);
+
+    console.log("🔍 EXTRACTED CONFIG VALUES:", {
+      serverURL: serverURL || "MISSING",
+      organizationId: organizationId || "MISSING",
+      accessToken: accessToken ? "PRESENT" : "MISSING",
+    });
+
     if (serverURL && organizationId && accessToken) {
       this.config = { serverURL, organizationId, accessToken };
+      console.log("✅ Gray Whale config successfully created");
     } else {
-      this.config = null;
+      // TEMPORARY FALLBACK: Use hardcoded values if Expo Constants fails
+      console.log("❌ Gray Whale config FAILED - using hardcoded fallback");
+      this.config = {
+        serverURL: "https://app.productgenius.io",
+        organizationId: "FittedAI",
+        accessToken: "7cd2e0b1-8328-4838-91e8-6457b9bed2db",
+      };
+      console.log("🔧 Using hardcoded Gray Whale config as fallback");
     }
   }
 
@@ -200,8 +224,8 @@ export class GrayWhaleApiClient {
   private buildFeedUrl(projectKey?: "A" | "B"): string {
     if (!this.config) return "";
     const { serverURL, organizationId } = this.config;
-    // Allow two projects by suffixing organization ID, e.g., myshop-A / myshop-B
-    const org = projectKey ? `${organizationId}-${projectKey}` : organizationId;
+    // Temporarily disable A/B project logic - use main project only
+    const org = organizationId; // Always use base organization ID
     return `${serverURL}/hackathon/${org}/feed/${this.sessionId}`;
   }
 
@@ -209,10 +233,14 @@ export class GrayWhaleApiClient {
     cards: GrayWhaleCard[],
     preferences: UserPreferences
   ): OutfitRecommendation[] {
-    // Enhanced mapping that includes shopping data for Gray Whale cards
+    // Enhanced mapping that handles Gray Whale's actual API response structure
     const recs: OutfitRecommendation[] = cards
       .map((card: any, idx: number) => {
+        // Handle Gray Whale's actual structure with product object
+        const product = card?.product;
+
         const imageUrl =
+          product?.image_url ||
           card?.imageUrl ||
           card?.image_url ||
           card?.image ||
@@ -220,18 +248,32 @@ export class GrayWhaleApiClient {
           "https://via.placeholder.com/300x500/6366f1/FFFFFF?text=Gray+Whale+Rec";
 
         const title =
+          product?.title ||
           card?.title ||
           card?.name ||
           card?.heading ||
           "Gray Whale Recommendation";
 
+        const description =
+          product?.body ||
+          product?.summary ||
+          product?.subtitle ||
+          card?.description ||
+          title;
+
+        // Use score from card or default confidence
         const confidence =
           typeof card?.score === "number"
             ? Math.max(0, Math.min(1, card.score))
             : 0.85; // Higher default confidence for Gray Whale
 
         const id = String(
-          card?.id || card?.sku || card?.asin || `gw_${Date.now()}_${idx}`
+          card?.id ||
+            product?.sku ||
+            product?.product_id ||
+            card?.sku ||
+            card?.asin ||
+            `gw_${Date.now()}_${idx}`
         );
 
         // Extract shopping items from Gray Whale card structure
@@ -242,22 +284,102 @@ export class GrayWhaleApiClient {
           items,
           imageUrl,
           eventType: preferences.eventType,
-          styleDescription: title,
+          styleDescription: description,
           confidence,
         } as OutfitRecommendation;
       })
       .filter(Boolean);
+
+    console.log("🎯 FINAL RECOMMENDATIONS DEBUG:", {
+      originalCardsCount: cards.length,
+      mappedRecsCount: recs.length,
+      recommendations: recs.map((rec) => ({
+        id: rec.id,
+        styleDescription: rec.styleDescription,
+        confidence: rec.confidence,
+        itemsCount: rec.items.length,
+        items: rec.items.map((item) => ({
+          name: item.name,
+          category: item.category,
+          price: item.price,
+          amazonUrl: item.amazonUrl,
+        })),
+      })),
+    });
+
     return recs;
   }
 
   private extractItemsFromCard(card: any, idx: number): any[] {
-    // Try to extract individual items from Gray Whale card
-    // This handles various possible Gray Whale response structures
-
+    // Handle Gray Whale's actual response structure with product.attributes
     const items: any[] = [];
 
-    // Method 1: Check if card has items array
-    if (Array.isArray(card?.items)) {
+    // Method 1: Handle Gray Whale's actual structure with product object
+    if (card?.product) {
+      const product = card.product;
+      const attributes = product.attributes || [];
+
+      // Extract Amazon URLs from attributes
+      const amazonUrls = attributes
+        .filter((attr: any) => attr.name?.includes("_url"))
+        .map((attr: any) => ({
+          type: attr.name.replace("_url", ""),
+          url: attr.value,
+        }));
+
+      // Create items from the Amazon URLs
+      amazonUrls.forEach((urlInfo: any, itemIdx: number) => {
+        items.push({
+          id: `${product.sku || card.id}_${urlInfo.type}`,
+          name: this.getItemNameFromType(urlInfo.type, product.title),
+          brand: this.extractBrandFromTitle(product.title) || "Brand",
+          price: 0, // No price data in response, will show "See Amazon for price"
+          imageUrl:
+            product.image_url ||
+            `https://via.placeholder.com/300x400/6366f1/FFFFFF?text=${encodeURIComponent(
+              urlInfo.type
+            )}`,
+          amazonUrl: urlInfo.url,
+          category: this.mapTypeToCategory(urlInfo.type),
+          colors: ["Multi"],
+          sizes: this.getDefaultSizes(urlInfo.type),
+        });
+      });
+
+      console.log("🔍 EXTRACTED ITEMS DEBUG:", {
+        cardId: card?.id,
+        productTitle: card?.product?.title,
+        attributesFound: attributes.length,
+        amazonUrlsFound: amazonUrls.length,
+        amazonUrls: amazonUrls,
+        createdItems: items.length,
+        itemDetails: items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          category: item.category,
+          amazonUrl: item.amazonUrl,
+        })),
+      });
+
+      // If no individual items found, create one item for the whole outfit
+      if (items.length === 0) {
+        items.push({
+          id: product.sku || card.id || `gw_outfit_${idx}`,
+          name: product.title || "Complete Outfit",
+          brand: "Gray Whale",
+          price: 0,
+          imageUrl:
+            product.image_url ||
+            "https://via.placeholder.com/300x400/6366f1/FFFFFF?text=Complete+Outfit",
+          amazonUrl: "#", // No single URL for complete outfit
+          category: "top" as const,
+          colors: ["Multi"],
+          sizes: ["M", "L"],
+        });
+      }
+    }
+    // Method 2: Check if card has items array (fallback for other structures)
+    else if (Array.isArray(card?.items)) {
       return card.items.map((item: any, itemIdx: number) => ({
         id: item?.id || item?.sku || item?.asin || `gw_item_${idx}_${itemIdx}`,
         name:
@@ -297,9 +419,8 @@ export class GrayWhaleApiClient {
           : this.getDefaultSizes(item?.category),
       }));
     }
-
-    // Method 2: Check if card itself represents a single item
-    if (card?.amazonUrl || card?.external_url || card?.product_url) {
+    // Method 3: Check if card itself represents a single item (fallback)
+    else if (card?.amazonUrl || card?.external_url || card?.product_url) {
       items.push({
         id: card?.id || card?.sku || card?.asin || `gw_single_${idx}`,
         name:
@@ -335,7 +456,7 @@ export class GrayWhaleApiClient {
       });
     }
 
-    // Method 3: If no items found, create a placeholder item for the outfit
+    // Method 4: Final fallback - create a placeholder item for the outfit
     if (items.length === 0) {
       items.push({
         id: `gw_outfit_${idx}`,
@@ -355,6 +476,50 @@ export class GrayWhaleApiClient {
     }
 
     return items;
+  }
+
+  private getItemNameFromType(type: string, outfitTitle: string): string {
+    const typeNames: Record<string, string> = {
+      black_pant: "Black Pants",
+      pajama: "Kurta Pajama Set",
+      shoes: "Traditional Shoes",
+      kurta: "Silk Kurta",
+      pant: "Pants",
+      shirt: "Shirt",
+      dress: "Dress",
+      jacket: "Jacket",
+    };
+    return (
+      typeNames[type] ||
+      `${type.charAt(0).toUpperCase() + type.slice(1)} from ${outfitTitle}`
+    );
+  }
+
+  private mapTypeToCategory(
+    type: string
+  ): "top" | "bottom" | "shoes" | "accessories" {
+    const lower = type.toLowerCase();
+    if (
+      lower.includes("pant") ||
+      lower.includes("pajama") ||
+      lower.includes("trouser")
+    )
+      return "bottom";
+    if (
+      lower.includes("shoe") ||
+      lower.includes("boot") ||
+      lower.includes("sandal")
+    )
+      return "shoes";
+    if (
+      lower.includes("kurta") ||
+      lower.includes("shirt") ||
+      lower.includes("dress") ||
+      lower.includes("jacket") ||
+      lower.includes("blazer")
+    )
+      return "top";
+    return "accessories";
   }
 
   private extractBrandFromTitle(title?: string): string {
