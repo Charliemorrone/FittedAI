@@ -6,13 +6,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Image,
   Alert,
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -23,9 +22,9 @@ import { PhotoStorageService } from '../services/photoStorageService';
 
 type InputScreenNavigationProp = StackNavigationProp<RootStackParamList, 'InputScreen'>;
 
-interface Props {
+type Props = Readonly<{
   navigation: InputScreenNavigationProp;
-}
+}>;
 
 const { width, height } = Dimensions.get('window');
 
@@ -335,7 +334,7 @@ export default function InputScreen({ navigation }: Props) {
             <TextInput
               ref={inputRef}
               style={styles.textInput}
-              placeholder="Message FittedAI..."
+              placeholder="i.e. Indian Wedding, Easter Brunch"
               value={message}
               onChangeText={setMessage}
               multiline
@@ -578,7 +577,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#111827',
     maxHeight: 100,
-    paddingVertical: 8,
+    paddingVertical: 0,
     textAlignVertical: 'center',
   },
   sendButton: {
