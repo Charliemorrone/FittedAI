@@ -32,7 +32,7 @@ const { width, height } = Dimensions.get('window');
 
 const EVENT_SUGGESTIONS: EventSuggestion[] = [
   { id: 'business', title: 'Business Meeting', icon: 'briefcase', description: 'Professional attire' },
-  { id: 'wedding', title: 'Wedding Guest', icon: 'flower', description: 'Elegant formal wear' },
+  { id: 'wedding', title: 'Indian Wedding', icon: 'flower', description: 'Elegant formal wear' },
   { id: 'date', title: 'Date Night', icon: 'heart', description: 'Romantic and stylish' },
   { id: 'casual', title: 'Weekend Casual', icon: 'shirt', description: 'Comfortable and relaxed' },
   { id: 'party', title: 'Party/Event', icon: 'musical-notes', description: 'Fun and trendy' },
@@ -114,10 +114,15 @@ export default function InputScreen({ navigation }: Props) {
     };
   }, []);
 
-  // Reload photo when returning from camera screen
+  // Reload photo and reset state when returning from other screens
   useFocusEffect(
     React.useCallback(() => {
       loadStoredPhoto();
+      // Reset chat state to show suggestions again
+      setHasStartedChat(false);
+      setMessage('');
+      setIsLoading(false);
+      stopRotation();
     }, [])
   );
 
@@ -372,6 +377,29 @@ export default function InputScreen({ navigation }: Props) {
                 onSuggestionPress={handleSuggestionPress}
               />
             </>
+          ) : isLoading ? (
+            <View style={styles.loadingStateContainer}>
+              <View style={styles.loadingContent}>
+                <Animated.View
+                  style={{
+                    transform: [
+                      {
+                        rotate: rotationAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0deg', '360deg'],
+                        }),
+                      },
+                    ],
+                  }}
+                >
+                  <Ionicons name="hourglass" size={32} color="#111827" />
+                </Animated.View>
+                <Text style={styles.loadingText}>Getting you fitted...</Text>
+                <Text style={styles.loadingSubtext}>
+                  {isCoupleMode ? 'Finding coordinating outfits for both of you' : 'Analyzing your style preferences'}
+                </Text>
+              </View>
+            </View>
           ) : (
             <View style={styles.emptyStateContainer}>
               {/* Just show empty space or minimal content when typing */}
@@ -666,6 +694,30 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 40,
     paddingBottom: 120,
+  },
+  loadingStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingContent: {
+    alignItems: 'center',
+    maxWidth: 280,
+  },
+  loadingText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'center',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  loadingSubtext: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 24,
   },
   inputArea: {
     paddingHorizontal: 20,

@@ -749,7 +749,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Style Matches</Text>
+          <Text style={styles.headerTitle}>Style Matters</Text>
         </View>
         <View style={styles.progressIndicator}>
           <Text style={styles.progressText}>
