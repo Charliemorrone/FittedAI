@@ -28,7 +28,7 @@ const EventSuggestionCarousel: React.FC<Props> = ({ suggestions, onSuggestionPre
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Popular requests</Text>
+      <Text style={styles.title}>Popular</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -51,7 +51,7 @@ const EventSuggestionCarousel: React.FC<Props> = ({ suggestions, onSuggestionPre
             <View style={styles.iconContainer}>
               <Ionicons 
                 name={suggestion.icon} 
-                size={20} 
+r                size={20} 
                 color="#111827" 
               />
             </View>

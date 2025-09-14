@@ -10,13 +10,17 @@ import {
   Animated,
   SafeAreaView,
   Linking,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { Video, ResizeMode } from 'expo-av';
 import { RootStackParamList, UserPreferences, OutfitRecommendation, SwipeAction, OutfitItem } from '../types';
 import GrayWhaleService from '../services/grayWhaleService';
+import VeoService, { VeoVideoResponse } from '../services/veoService';
 // Import collections data directly as JSON
 import collectionsData from '../assets/images/collections.json';
 
@@ -167,6 +171,20 @@ export default function RecommendationScreen({ navigation, route }: Props) {
   const [isCollectionsMode, setIsCollectionsMode] = useState(false);
   const [collections, setCollections] = useState<Array<any>>([]);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [veoUnlocked, setVeoUnlocked] = useState(false);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [videoResponse, setVideoResponse] = useState<VeoVideoResponse | null>(null);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [showUnlockNotification, setShowUnlockNotification] = useState(false);
+  const [videoPollingInterval, setVideoPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const videoRef = useRef<Video>(null);
+  
+  // Unlock notification animation
+  const unlockNotificationOpacity = useRef(new Animated.Value(0)).current;
+  const unlockNotificationTranslateY = useRef(new Animated.Value(-50)).current;
 
   // Animation values for current card
   const translateX = useRef(new Animated.Value(0)).current;
@@ -184,6 +202,10 @@ export default function RecommendationScreen({ navigation, route }: Props) {
   const likeButtonOpacity = useRef(new Animated.Value(0.7)).current;
   const dislikeButtonOpacity = useRef(new Animated.Value(0.7)).current;
   
+  // VEO button animations
+  const veoButtonScale = useRef(new Animated.Value(0)).current;
+  const veoButtonOpacity = useRef(new Animated.Value(0)).current;
+  
   // Swipe indicators
   const likeIndicatorOpacity = useRef(new Animated.Value(0)).current;
   const dislikeIndicatorOpacity = useRef(new Animated.Value(0)).current;
@@ -194,30 +216,44 @@ export default function RecommendationScreen({ navigation, route }: Props) {
     let isMounted = true;
     (async () => {
       try {
-        // Try to load local collections first
+        // Priority 1: Try Gray Whale API first
+        console.log('🐋 Attempting Gray Whale API call...');
+        const recs = await GrayWhaleService.getRecommendations(preferences);
+        if (isMounted && recs && recs.length > 0) {
+          console.log('✅ Gray Whale API successful, got', recs.length, 'recommendations');
+          setRecommendations(recs);
+          setIsCollectionsMode(false);
+          setIsLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.warn('⚠️ Gray Whale API failed, trying fallbacks:', e);
+      }
+
+      try {
+        // Priority 2: Try local collections as fallback
+        console.log('📁 Trying local collections fallback...');
         const sets = Array.isArray(collectionsData?.sets) ? collectionsData.sets : [];
         if (isMounted && sets.length > 0) {
+          console.log('✅ Using local collections,', sets.length, 'sets available');
           setCollections(sets);
           setIsCollectionsMode(true);
           setIsLoading(false);
           return;
         }
       } catch (e) {
-        // If reading local collections fails, proceed with API
+        console.warn('⚠️ Local collections failed:', e);
       }
-      try {
-        const recs = await GrayWhaleService.getRecommendations(preferences);
-        if (isMounted) {
-          setRecommendations(recs);
-        }
-      } catch (e) {
-        if (isMounted) {
-          const fallback = generateMockRecommendations(preferences);
-          setRecommendations(fallback);
-        }
-      } finally {
-        if (isMounted) setIsLoading(false);
+
+      // Priority 3: Final fallback to mock data
+      if (isMounted) {
+        console.log('🔄 Using mock data fallback');
+        const fallback = generateMockRecommendations(preferences);
+        setRecommendations(fallback);
+        setIsCollectionsMode(false);
       }
+
+      if (isMounted) setIsLoading(false);
     })();
     return () => {
       isMounted = false;
@@ -344,6 +380,72 @@ export default function RecommendationScreen({ navigation, route }: Props) {
     });
   };
 
+  // VEO button animation helpers
+  const animateVeoButtonAppearance = () => {
+    // Show unlock notification first
+    setShowUnlockNotification(true);
+    
+    // Animate unlock notification
+    Animated.parallel([
+      Animated.timing(unlockNotificationOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(unlockNotificationTranslateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 8,
+      }),
+    ]).start(() => {
+      // Hide notification after 2 seconds
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(unlockNotificationOpacity, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(unlockNotificationTranslateY, {
+            toValue: -50,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setShowUnlockNotification(false);
+        });
+      }, 2000);
+    });
+
+    // Spectacular entrance animation for VEO button
+    setTimeout(() => {
+      Animated.sequence([
+        // First, scale up with bounce
+        Animated.parallel([
+          Animated.spring(veoButtonScale, {
+            toValue: 1.2,
+            useNativeDriver: true,
+            tension: 100,
+            friction: 6,
+          }),
+          Animated.timing(veoButtonOpacity, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]),
+        // Then settle to normal size
+        Animated.spring(veoButtonScale, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 150,
+          friction: 8,
+        }),
+      ]).start();
+    }, 500);
+  };
+
   // Button animation helpers
   const animateButton = (buttonScale: Animated.Value, buttonOpacity: Animated.Value, isLike: boolean) => {
     // Scale and highlight animation
@@ -379,13 +481,63 @@ export default function RecommendationScreen({ navigation, route }: Props) {
     const currentSetLocal = isCollectionsMode ? collections[currentIndex] : null;
     const currentOutfit = !isCollectionsMode ? recommendations[currentIndex] : null;
     const currentId = isCollectionsMode ? (currentSetLocal?.id || '') : (currentOutfit?.id || '');
-    if (!currentId) return;
+    
+    console.log('👆 SWIPE INTERACTION START:', {
+      direction,
+      velocity,
+      currentIndex,
+      isCollectionsMode,
+      currentId,
+      totalItems: isCollectionsMode ? collections.length : recommendations.length
+    });
+
+    if (!currentId) {
+      console.warn('⚠️ No current ID found for swipe - aborting');
+      return;
+    }
 
     // Prevent multiple swipes on the same card or during animation
     const totalCount = isCollectionsMode ? collections.length : recommendations.length;
-    if (currentIndex >= totalCount || isAnimating) return;
+    if (currentIndex >= totalCount || isAnimating) {
+      console.warn('⚠️ Swipe blocked - out of bounds or animating:', {
+        currentIndex,
+        totalCount,
+        isAnimating
+      });
+      return;
+    }
 
     setIsAnimating(true);
+
+    // Log current item details
+    if (isCollectionsMode && currentSetLocal) {
+      console.log('👆 SWIPING COLLECTION:', {
+        id: currentSetLocal.id,
+        title: currentSetLocal.title,
+        itemsCount: Object.keys(currentSetLocal.items || {}).length,
+        items: Object.entries(currentSetLocal.items || {}).map(([type, item]: [string, any]) => ({
+          type,
+          title: item.title,
+          external_url: item.external_url
+        }))
+      });
+    } else if (!isCollectionsMode && currentOutfit) {
+      console.log('👆 SWIPING RECOMMENDATION:', {
+        id: currentOutfit.id,
+        styleDescription: currentOutfit.styleDescription,
+        confidence: currentOutfit.confidence,
+        eventType: currentOutfit.eventType,
+        itemsCount: currentOutfit.items.length,
+        items: currentOutfit.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          brand: item.brand,
+          price: item.price,
+          category: item.category,
+          amazonUrl: item.amazonUrl
+        }))
+      });
+    }
 
     // Animate corresponding button
     if (direction === 'right') {
@@ -400,10 +552,25 @@ export default function RecommendationScreen({ navigation, route }: Props) {
       timestamp: Date.now(),
     };
 
-    setSwipeActions(prev => [...prev, action]);
+    console.log('👆 SWIPE ACTION CREATED:', {
+      ...action,
+      timestampFormatted: new Date(action.timestamp).toISOString(),
+      swipeDirection: direction,
+      isLike: direction === 'right'
+    });
+
+    setSwipeActions(prev => {
+      const newActions = [...prev, action];
+      console.log('👆 TOTAL SWIPE ACTIONS:', newActions.length, newActions);
+      return newActions;
+    });
+
     // Fire-and-forget feedback to backend
     if (!isCollectionsMode) {
+      console.log('👆 SENDING FEEDBACK TO GRAY WHALE...');
       GrayWhaleService.sendFeedback([action]);
+    } else {
+      console.log('👆 Collections mode - skipping Gray Whale feedback');
     }
 
     // Calculate animation duration based on velocity
@@ -445,11 +612,27 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         animateNextCard();
         setIsAnimating(false);
         // Update swipe count after animation completes
-        setSwipeCount((c) => c + 1);
+        setSwipeCount((c) => {
+          const newCount = c + 1;
+          // Unlock VEO feature after 3 swipes
+          if (newCount >= 3 && !veoUnlocked) {
+            setVeoUnlocked(true);
+            animateVeoButtonAppearance();
+          }
+          return newCount;
+        });
       } else {
         setIsAnimating(false);
         // Update swipe count after animation completes
-        setSwipeCount((c) => c + 1);
+        setSwipeCount((c) => {
+          const newCount = c + 1;
+          // Unlock VEO feature after 3 swipes
+          if (newCount >= 3 && !veoUnlocked) {
+            setVeoUnlocked(true);
+            animateVeoButtonAppearance();
+          }
+          return newCount;
+        });
         // No more recommendations, show purchase option
         Alert.alert(
           'All Done!',
@@ -466,26 +649,164 @@ export default function RecommendationScreen({ navigation, route }: Props) {
   // Auto-refresh after every 5 swipes (less aggressive to avoid animation conflicts)
   useEffect(() => {
     if (!isLoading && !isCollectionsMode && swipeCount > 0 && swipeCount % 5 === 0) {
+      console.log('🔄 AUTO-REFRESH TRIGGERED:', {
+        swipeCount,
+        isLoading,
+        isCollectionsMode,
+        isAnimating,
+        currentRecommendationsCount: recommendations.length
+      });
+
       // Add a delay to ensure animations complete and avoid conflicts
       const refreshTimer = setTimeout(async () => {
         // Double-check we're not animating before refreshing
         if (!isAnimating) {
+          console.log('🔄 EXECUTING AUTO-REFRESH - Re-fetching Gray Whale recommendations...');
           try {
             // Re-fetch recommendations. Backend uses prior feedback events to re-rank.
             const updated = await GrayWhaleService.getRecommendations(preferences);
+            console.log('🔄 AUTO-REFRESH SUCCESS:', {
+              previousCount: recommendations.length,
+              newCount: updated.length,
+              resetToIndex: 0
+            });
             // Replace remaining stack with updated items
             setRecommendations(updated);
             setCurrentIndex(0);
             resetCardAnimations();
           } catch (e) {
+            console.error('🔄 AUTO-REFRESH FAILED:', e);
             // Non-fatal; keep current stack
           }
+        } else {
+          console.log('🔄 AUTO-REFRESH SKIPPED - still animating');
         }
       }, 1000); // Wait 1 second to ensure all animations are complete
 
       return () => clearTimeout(refreshTimer);
     }
   }, [swipeCount]);
+
+  // Video status polling
+  const startVideoPolling = (videoId: string) => {
+    // Clear any existing polling
+    if (videoPollingInterval) {
+      clearInterval(videoPollingInterval);
+    }
+
+    let progress = 0;
+    const interval = setInterval(async () => {
+      try {
+        const status = await VeoService.checkVideoStatus(videoId);
+        
+        // Update progress
+        progress += 10;
+        setVideoProgress(Math.min(progress, 90)); // Cap at 90% until completion
+        
+        if (status.status === 'completed' && status.videoUrl) {
+          // Video is ready! Show it immediately
+          clearInterval(interval);
+          setVideoPollingInterval(null);
+          setVideoProgress(100);
+          setIsGeneratingVideo(false);
+          
+          // Update the video response with the completed video
+          setVideoResponse(status);
+          
+          // Reset video state and auto-show the video modal
+          setIsVideoLoading(true);
+          setVideoError(null);
+          setShowVideoModal(true);
+          
+          console.log('🎬 Video completed! Auto-displaying:', status.videoUrl);
+          
+        } else if (status.status === 'failed') {
+          // Generation failed
+          clearInterval(interval);
+          setVideoPollingInterval(null);
+          setIsGeneratingVideo(false);
+          setVideoProgress(0);
+          
+          Alert.alert('Video Generation Failed', status.error || 'Please try again.');
+        }
+      } catch (error) {
+        console.error('Error polling video status:', error);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    setVideoPollingInterval(interval);
+  };
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (videoPollingInterval) {
+        clearInterval(videoPollingInterval);
+      }
+    };
+  }, [videoPollingInterval]);
+
+  const handleVeoGeneration = async () => {
+    const totalCount = isCollectionsMode ? collections.length : recommendations.length;
+    if (currentIndex >= totalCount) {
+      Alert.alert('No Outfit Available', 'No outfit is currently being displayed for video generation.');
+      return;
+    }
+
+    try {
+      setIsGeneratingVideo(true);
+      
+      // Get current outfit details
+      let styleDescription = '';
+      let outfitImageUrl = '';
+      
+      if (isCollectionsMode) {
+        const currentCollection = collections[currentIndex];
+        styleDescription = currentCollection?.title || 'Stylish outfit collection';
+        outfitImageUrl = 'https://via.placeholder.com/400x600/6366f1/FFFFFF?text=Collection+Style';
+      } else {
+        const currentOutfit = recommendations[currentIndex];
+        styleDescription = currentOutfit?.styleDescription || 'Stylish outfit recommendation';
+        outfitImageUrl = currentOutfit?.imageUrl || '';
+      }
+
+      // Prepare VEO request
+      const veoRequest = {
+        styleImageUrl: outfitImageUrl,
+        partnerImageUrl: preferences.partnerReferenceImage,
+        outfitDescription: styleDescription,
+        eventType: preferences.eventType,
+        prompt: preferences.stylePrompt,
+      };
+
+      console.log('🎬 Starting VEO video generation:', veoRequest);
+
+      // Generate video
+      const response = await VeoService.generateVideo(veoRequest);
+      setVideoResponse(response);
+
+      if (response.status === 'processing') {
+        // Start polling for video completion
+        startVideoPolling(response.videoId);
+        
+        // Show a simple notification instead of blocking alert
+        Alert.alert(
+          '🎬 Video Generation Started!',
+          `Your ${preferences.partnerReferenceImage ? 'couple' : 'solo'} fashion video is being created. It will appear automatically when ready.`,
+          [
+            { text: 'Got it!', style: 'default' },
+          ]
+        );
+      } else if (response.status === 'failed') {
+        Alert.alert('Generation Failed', response.error || 'Failed to generate video. Please try again.');
+      }
+    } catch (error) {
+      console.error('💥 VEO generation error:', error);
+      Alert.alert('Error', 'Failed to start video generation. Please try again.');
+    } finally {
+      setIsGeneratingVideo(false);
+    }
+  };
 
   const handlePurchase = () => {
     // Get the current outfit being viewed
@@ -890,6 +1211,25 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         </PanGestureHandler>
       </View>
 
+      {/* Unlock Notification */}
+      {showUnlockNotification && (
+        <Animated.View
+          style={[
+            styles.unlockNotification,
+            {
+              opacity: unlockNotificationOpacity,
+              transform: [{ translateY: unlockNotificationTranslateY }],
+            },
+          ]}
+        >
+          <View style={styles.unlockNotificationContent}>
+            <Ionicons name="sparkles" size={20} color="#ff6b6b" />
+            <Text style={styles.unlockNotificationText}>Video Generation Unlocked!</Text>
+            <Text style={styles.unlockNotificationSubtext}>Create AI videos with your style</Text>
+          </View>
+        </Animated.View>
+      )}
+
       {/* Bottom Action Bar */}
       <View style={styles.bottomActionBar}>
         <Animated.View style={{ transform: [{ scale: dislikeButtonScale }], opacity: dislikeButtonOpacity }}>
@@ -910,6 +1250,36 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           <Ionicons name="bag" size={26} color="#ffffff" />
         </TouchableOpacity>
 
+        {/* VEO Video Generation Button */}
+        {veoUnlocked && (
+          <Animated.View 
+            style={[
+              styles.veoButtonContainer,
+              {
+                opacity: veoButtonOpacity,
+                transform: [{ scale: veoButtonScale }],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={[styles.actionButton, styles.veoButton]}
+              onPress={handleVeoGeneration}
+              activeOpacity={0.7}
+              disabled={isGeneratingVideo}
+            >
+              {isGeneratingVideo ? (
+                <View style={styles.veoButtonProgress}>
+                  <View style={[styles.veoProgressBar, { width: `${videoProgress}%` }]} />
+                  <Ionicons name="hourglass" size={24} color="#ffffff" style={styles.veoProgressIcon} />
+                </View>
+              ) : (
+                <Ionicons name="videocam" size={24} color="#ffffff" />
+              )}
+            </TouchableOpacity>
+            <Text style={styles.veoButtonLabel}>Gen Video</Text>
+          </Animated.View>
+        )}
+
         <Animated.View style={{ transform: [{ scale: likeButtonScale }], opacity: likeButtonOpacity }}>
           <TouchableOpacity
             style={[styles.actionButton, styles.likeButton]}
@@ -920,6 +1290,140 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         </Animated.View>
       </View>
+
+      {/* Video Display Modal */}
+      <Modal
+        visible={showVideoModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowVideoModal(false)}
+      >
+        <SafeAreaView style={styles.videoModalContainer}>
+          <View style={styles.videoModalHeader}>
+            <TouchableOpacity
+              style={styles.videoModalCloseButton}
+              onPress={() => setShowVideoModal(false)}
+            >
+              <Ionicons name="close" size={24} color="#111827" />
+            </TouchableOpacity>
+            <Text style={styles.videoModalTitle}>Your Fashion Video</Text>
+            <View style={styles.videoModalHeaderSpacer} />
+          </View>
+
+          <ScrollView style={styles.videoModalContent}>
+            {videoResponse?.status === 'completed' && videoResponse.videoUrl ? (
+              <View style={styles.videoContainer}>
+                {/* Actual Video Player */}
+                <View style={styles.videoPlayerContainer}>
+                  {videoError ? (
+                    <View style={styles.videoErrorContainer}>
+                      <Ionicons name="alert-circle" size={48} color="#ef4444" />
+                      <Text style={styles.videoErrorText}>Failed to load video</Text>
+                      <Text style={styles.videoErrorSubtext}>{videoError}</Text>
+                      <TouchableOpacity 
+                        style={styles.retryButton}
+                        onPress={() => {
+                          setVideoError(null);
+                          setIsVideoLoading(true);
+                        }}
+                      >
+                        <Ionicons name="refresh" size={16} color="#ffffff" />
+                        <Text style={styles.retryButtonText}>Retry</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <>
+                      <Video
+                        ref={videoRef}
+                        style={styles.videoPlayer}
+                        source={{ uri: videoResponse.videoUrl }}
+                        useNativeControls
+                        resizeMode={ResizeMode.CONTAIN}
+                        isLooping
+                        shouldPlay={false}
+                        onLoad={() => {
+                          setIsVideoLoading(false);
+                          console.log('🎬 Video loaded successfully');
+                        }}
+                        onError={(error) => {
+                          setIsVideoLoading(false);
+                          setVideoError(typeof error === 'string' ? error : 'Unknown video error');
+                          console.error('🎬 Video error:', error);
+                        }}
+                        onLoadStart={() => {
+                          setIsVideoLoading(true);
+                          setVideoError(null);
+                        }}
+                      />
+                      {isVideoLoading && (
+                        <View style={styles.videoLoadingOverlay}>
+                          <Ionicons name="hourglass" size={32} color="#ff6b6b" />
+                          <Text style={styles.videoLoadingText}>Loading video...</Text>
+                        </View>
+                      )}
+                    </>
+                  )}
+                </View>
+                
+                <View style={styles.videoActions}>
+                  <TouchableOpacity 
+                    style={styles.videoActionButton}
+                    onPress={async () => {
+                      if (videoRef.current) {
+                        try {
+                          const status = await videoRef.current.getStatusAsync();
+                          if (status.isLoaded) {
+                            if (status.isPlaying) {
+                              await videoRef.current.pauseAsync();
+                            } else {
+                              await videoRef.current.playAsync();
+                            }
+                          }
+                        } catch (error) {
+                          console.error('Error controlling video playback:', error);
+                        }
+                      }
+                    }}
+                  >
+                    <Ionicons name="play-outline" size={20} color="#ffffff" />
+                    <Text style={styles.videoActionText}>Play/Pause</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.videoActionButton, styles.shareButton]}
+                    onPress={() => {
+                      // Share functionality would go here
+                      Alert.alert('Share', 'Share functionality coming soon!');
+                    }}
+                  >
+                    <Ionicons name="share-outline" size={20} color="#ffffff" />
+                    <Text style={styles.videoActionText}>Share</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.videoDetails}>
+                  <Text style={styles.videoDetailsTitle}>Video Details</Text>
+                  <Text style={styles.videoDetailsText}>
+                    Type: {preferences.partnerReferenceImage ? 'Couple Fashion Video' : 'Solo Fashion Video'}
+                  </Text>
+                  <Text style={styles.videoDetailsText}>
+                    Event: {preferences.eventType}
+                  </Text>
+                  <Text style={styles.videoDetailsText}>
+                    Style: {isCollectionsMode ? collections[currentIndex]?.title : recommendations[currentIndex]?.styleDescription}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.videoLoadingContainer}>
+                <Ionicons name="hourglass" size={48} color="#ff6b6b" />
+                <Text style={styles.videoGeneratingText}>Generating your video...</Text>
+                <Text style={styles.videoLoadingSubtext}>This may take up to 30 seconds</Text>
+              </View>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1158,6 +1662,264 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     marginHorizontal: 20,
+  },
+  veoButtonContainer: {
+    alignItems: 'center',
+    marginHorizontal: 12,
+    position: 'absolute',
+    top: -40,
+    right: 100,
+    zIndex: 10,
+  },
+  veoButton: {
+    backgroundColor: '#ff6b6b',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginBottom: 4,
+    shadowColor: '#ff6b6b',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  veoButtonLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#ff6b6b',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  veoButtonProgress: {
+    position: 'relative',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 28,
+    overflow: 'hidden',
+  },
+  veoProgressBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 28,
+  },
+  veoProgressIcon: {
+    zIndex: 1,
+  },
+  unlockNotification: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    zIndex: 100,
+    alignItems: 'center',
+  },
+  unlockNotificationContent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 15,
+    borderWidth: 2,
+    borderColor: '#ff6b6b',
+  },
+  unlockNotificationText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  unlockNotificationSubtext: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  // Video Modal Styles
+  videoModalContainer: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  videoModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  videoModalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  videoModalHeaderSpacer: {
+    width: 40,
+  },
+  videoModalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  videoContainer: {
+    flex: 1,
+  },
+  videoPlayerContainer: {
+    position: 'relative',
+    backgroundColor: '#000000',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 24,
+    aspectRatio: 16 / 9,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  videoPlayer: {
+    width: '100%',
+    height: '100%',
+  },
+  videoLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+  },
+  videoLoadingText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  videoErrorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    backgroundColor: '#f8fafc',
+  },
+  videoErrorText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  videoErrorSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 8,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff6b6b',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  videoActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 24,
+  },
+  videoActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff6b6b',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    shadowColor: '#ff6b6b',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  shareButton: {
+    backgroundColor: '#6366f1',
+    shadowColor: '#6366f1',
+  },
+  videoActionText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  videoDetails: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  videoDetailsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  videoDetailsText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  videoLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  videoGeneratingText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  videoLoadingSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 8,
+    textAlign: 'center',
   },
   purchaseButton: {
     backgroundColor: '#111827',

@@ -34,6 +34,7 @@ export interface UserPreferences {
   eventType: string;
   stylePrompt: string;
   referenceImage?: string;
+  partnerReferenceImage?: string;
   likedOutfits: string[];
   dislikedOutfits: string[];
   // Select which Gray Whale project to use (e.g., 'A' or 'B')

@@ -2,7 +2,7 @@
 
 ## Current Focus
 
-Gray Whale API integration and collections mode complete. Modern Tinder-like swipe interface implemented with dual project support.
+**Gray Whale API integration prioritized and enhanced** - API now takes priority over local collections, with comprehensive shopping data mapping. Modern Tinder-like swipe interface implemented with dual project support.
 
 ## Recent Changes
 
@@ -19,15 +19,29 @@ Gray Whale API integration and collections mode complete. Modern Tinder-like swi
 - ✅ **Collections mode** - displays local outfit sets from JSON with swipeable cards
 - ✅ **Auto-refresh after 3 swipes** for immediate re-ranking from API
 - ✅ **Dynamic project selection** based on user input (wedding/formal → A, else → B)
+- ✅ **VEO 3 Video Generation** - Premium feature that unlocks after 3 swipes
+- ✅ **Partner Photo Support** - Couple video generation with partner reference photos
+- ✅ **Animated Unlock Experience** - Spectacular button appearance with notifications
+- ✅ **VEO Service Integration** - Google VEO 3 API wrapper with video generation
+- ✅ **Real Google API Integration** - Direct calls to Google VEO 3 with multiple endpoint support
+- ✅ **Smart Fallback System** - Graceful degradation to demo mode if API fails
+- ✅ **In-App Video Player** - Native video playback with expo-av integration
+- ✅ **Seamless Video Experience** - Auto-polling, progress tracking, and instant display
+- ✅ **Video Controls** - Play/pause, error handling, and loading states
+- ✅ **Gray Whale API Priority** - API-first approach with enhanced item data mapping
+- ✅ **Smart Shopping Integration** - Gray Whale responses now include detailed purchase data
 
 ## Next Steps
 
 1. Create splash screen for app launch
 2. Create item detail screen that appears when clicking on outfit photos
-3. Polish animations and micro-interactions
-4. Add user preferences persistence
-5. Testing with real Gray Whale API endpoints
-6. Enhanced error handling and offline support
+3. Add video status tracking modal for VEO generation progress
+4. Implement video playback functionality when generation completes
+5. Add VEO credits system and usage tracking
+6. Polish animations and micro-interactions
+7. Add user preferences persistence
+8. Testing with real Gray Whale API endpoints
+9. Enhanced error handling and offline support
 
 ## Active Decisions
 

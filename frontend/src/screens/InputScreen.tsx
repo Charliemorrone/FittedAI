@@ -295,6 +295,7 @@ export default function InputScreen({ navigation }: Props) {
           eventType: 'custom',
           stylePrompt: message.trim(),
           referenceImage: storedPhoto || referenceImage,
+          partnerReferenceImage: isCoupleMode ? partnerReferenceImage || undefined : undefined,
           likedOutfits: [],
           dislikedOutfits: [],
           grayWhaleProjectKey,

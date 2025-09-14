@@ -37,8 +37,8 @@
     },
     "extra": {
       "GRAY_WHALE_SERVER_URL": "https://app.productgenius.io",
-      "GRAY_WHALE_ORG_ID": "######",
-      "GRAY_WHALE_ACCESS_TOKEN": "######"
+      "GRAY_WHALE_ORG_ID": "FittedAI",
+      "GRAY_WHALE_ACCESS_TOKEN": "7cd2e0b1-8328-4838-91e8-6457b9bed2db"
     }
   }
 }
