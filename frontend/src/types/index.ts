@@ -17,6 +17,7 @@ export interface OutfitItem {
   category: "top" | "bottom" | "shoes" | "accessories";
   colors: string[];
   sizes: string[];
+  alternativeImageUrls?: string[]; // Optional array of fallback image URLs
 }
 
 export interface OutfitRecommendation {
@@ -35,6 +36,8 @@ export interface UserPreferences {
   referenceImage?: string;
   likedOutfits: string[];
   dislikedOutfits: string[];
+  // Select which Gray Whale project to use (e.g., 'A' or 'B')
+  grayWhaleProjectKey?: "A" | "B";
   sizePreferences: {
     top: string;
     bottom: string;

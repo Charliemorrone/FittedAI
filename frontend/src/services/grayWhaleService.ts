@@ -1,9 +1,14 @@
 // Gray Whale Algorithm Integration Service
-import { UserPreferences, OutfitRecommendation, GrayWhaleResponse } from '../types';
+import {
+  UserPreferences,
+  OutfitRecommendation,
+  GrayWhaleResponse,
+} from "../types";
+import grayWhaleApiClient from "./grayWhaleApi";
 
 export class GrayWhaleService {
   private static instance: GrayWhaleService;
-  private baseUrl: string = 'https://api.graywhale.com'; // Replace with actual API endpoint
+  private baseUrl: string = "https://api.graywhale.com"; // Replace with actual API endpoint
 
   public static getInstance(): GrayWhaleService {
     if (!GrayWhaleService.instance) {
@@ -15,12 +20,20 @@ export class GrayWhaleService {
   /**
    * Get outfit recommendations using Gray Whale algorithm
    */
-  async getRecommendations(preferences: UserPreferences): Promise<OutfitRecommendation[]> {
+  async getRecommendations(
+    preferences: UserPreferences
+  ): Promise<OutfitRecommendation[]> {
     try {
-      // For hackathon demo, we'll use mock data
-      // In production, this would call the actual Gray Whale API
+      // If configured, use the Gray Whale API client (ProductGenius hackathon feed)
+      if (grayWhaleApiClient.hasValidConfig()) {
+        const apiRecs = await grayWhaleApiClient.fetchRecommendations(
+          preferences
+        );
+        if (apiRecs && apiRecs.length > 0) return apiRecs;
+      }
+      // Fallback to mock data
       return this.getMockRecommendations(preferences);
-      
+
       // Uncomment for actual API integration:
       /*
       const response = await fetch(`${this.baseUrl}/recommendations`, {
@@ -49,8 +62,10 @@ export class GrayWhaleService {
       return data.recommendations;
       */
     } catch (error) {
-      console.error('Error fetching recommendations:', error);
-      throw new Error('Failed to get recommendations from Gray Whale algorithm');
+      console.error("Error fetching recommendations:", error);
+      throw new Error(
+        "Failed to get recommendations from Gray Whale algorithm"
+      );
     }
   }
 
@@ -63,9 +78,14 @@ export class GrayWhaleService {
     dislikedOutfits: string[]
   ): Promise<OutfitRecommendation[]> {
     try {
-      // For hackathon demo, return updated mock data
-      return this.getMockRecommendations(preferences, likedOutfits, dislikedOutfits);
-      
+      // TODO: If the backend supports incremental updates, wire here.
+      // Fallback: return updated mock data filtered by feedback
+      return this.getMockRecommendations(
+        preferences,
+        likedOutfits,
+        dislikedOutfits
+      );
+
       // Uncomment for actual API integration:
       /*
       const response = await fetch(`${this.baseUrl}/recommendations/update`, {
@@ -89,8 +109,28 @@ export class GrayWhaleService {
       return data.recommendations;
       */
     } catch (error) {
-      console.error('Error updating recommendations:', error);
-      throw new Error('Failed to update recommendations');
+      console.error("Error updating recommendations:", error);
+      throw new Error("Failed to update recommendations");
+    }
+  }
+
+  /**
+   * Send like/dislike feedback events to Gray Whale API (non-blocking)
+   */
+  async sendFeedback(
+    actions: Array<{
+      outfitId: string;
+      action: "like" | "dislike";
+      timestamp: number;
+    }>
+  ): Promise<void> {
+    try {
+      if (grayWhaleApiClient.hasValidConfig()) {
+        await grayWhaleApiClient.sendFeedback(actions);
+      }
+    } catch (error) {
+      // Non-fatal; log and continue
+      console.warn("GrayWhaleService.sendFeedback error", error);
     }
   }
 
@@ -105,32 +145,35 @@ export class GrayWhaleService {
     // This would be replaced with actual Gray Whale algorithm integration
     const mockRecommendations: OutfitRecommendation[] = [
       {
-        id: '1',
+        id: "1",
         items: [
           {
-            id: 'item1',
-            name: 'Elegant Black Dress',
-            brand: 'Fashion Brand',
+            id: "item1",
+            name: "Elegant Black Dress",
+            brand: "Fashion Brand",
             price: 89.99,
-            imageUrl: 'https://via.placeholder.com/300x400/000000/FFFFFF?text=Black+Dress',
-            amazonUrl: 'https://amazon.com/dress1',
-            category: 'top',
-            colors: ['black'],
-            sizes: ['S', 'M', 'L'],
+            imageUrl:
+              "https://via.placeholder.com/300x400/000000/FFFFFF?text=Black+Dress",
+            amazonUrl: "https://amazon.com/dress1",
+            category: "top",
+            colors: ["black"],
+            sizes: ["S", "M", "L"],
           },
           {
-            id: 'item2',
-            name: 'Black Heels',
-            brand: 'Shoe Brand',
+            id: "item2",
+            name: "Black Heels",
+            brand: "Shoe Brand",
             price: 129.99,
-            imageUrl: 'https://via.placeholder.com/300x400/000000/FFFFFF?text=Black+Heels',
-            amazonUrl: 'https://amazon.com/heels1',
-            category: 'shoes',
-            colors: ['black'],
-            sizes: ['7', '8', '9', '10'],
+            imageUrl:
+              "https://via.placeholder.com/300x400/000000/FFFFFF?text=Black+Heels",
+            amazonUrl: "https://amazon.com/heels1",
+            category: "shoes",
+            colors: ["black"],
+            sizes: ["7", "8", "9", "10"],
           },
         ],
-        imageUrl: 'https://via.placeholder.com/300x400/6366f1/FFFFFF?text=Outfit+1',
+        imageUrl:
+          "https://via.placeholder.com/300x400/6366f1/FFFFFF?text=Outfit+1",
         eventType: preferences.eventType,
         styleDescription: preferences.stylePrompt,
         confidence: 0.85,
@@ -139,7 +182,9 @@ export class GrayWhaleService {
     ];
 
     // Filter out disliked outfits and boost liked ones
-    return mockRecommendations.filter(rec => !dislikedOutfits.includes(rec.id));
+    return mockRecommendations.filter(
+      (rec) => !dislikedOutfits.includes(rec.id)
+    );
   }
 }
 

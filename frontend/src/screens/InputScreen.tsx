@@ -10,6 +10,8 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  Animated,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -42,10 +44,33 @@ const EVENT_SUGGESTIONS: EventSuggestion[] = [
 export default function InputScreen({ navigation }: Props) {
   const [message, setMessage] = useState<string>('');
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  const [selfieImage, setSelfieImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isCoupleMode, setIsCoupleMode] = useState(false);
+  const [partnerReferenceImage, setPartnerReferenceImage] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const rotationAnim = useRef(new Animated.Value(0)).current;
+
+  // Start rotation animation
+  const startRotation = () => {
+    rotationAnim.setValue(0);
+    Animated.loop(
+      Animated.timing(rotationAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      })
+    ).start();
+  };
+
+  // Stop rotation animation
+  const stopRotation = () => {
+    rotationAnim.stopAnimation();
+    rotationAnim.setValue(0);
+  };
 
   const loadStoredPhoto = async () => {
     console.log('🔄 InputScreen: Loading stored photo...');
@@ -68,6 +93,27 @@ export default function InputScreen({ navigation }: Props) {
     loadStoredPhoto();
   }, []);
 
+  // Keyboard listeners
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
+    };
+  }, []);
+
   // Reload photo when returning from camera screen
   useFocusEffect(
     React.useCallback(() => {
@@ -75,8 +121,8 @@ export default function InputScreen({ navigation }: Props) {
     }, [])
   );
 
-  const handleTakePhoto = async () => {
-    console.log('📸 InputScreen: Take photo button pressed');
+  const handleTakeSelfie = async () => {
+    console.log('🤳 InputScreen: Take selfie button pressed (demo only)');
     
     try {
       console.log('🔐 InputScreen: Requesting camera permissions...');
@@ -89,9 +135,8 @@ export default function InputScreen({ navigation }: Props) {
         return;
       }
 
-      console.log('📱 InputScreen: Launching camera directly...');
+      console.log('📱 InputScreen: Launching camera for selfie...');
       
-      // Add timeout to detect if ImagePicker is hanging
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Camera timeout after 10 seconds')), 10000);
       });
@@ -100,42 +145,44 @@ export default function InputScreen({ navigation }: Props) {
         ImagePicker.launchCameraAsync({
           mediaTypes: ['images'],
           allowsEditing: true,
-          aspect: [4, 3],
+          aspect: [1, 1], // Square aspect for selfie
           quality: 0.8,
         }),
         timeoutPromise
       ]) as ImagePicker.ImagePickerResult;
       
-      console.log('📱 InputScreen: Camera result:', result);
+      console.log('📱 InputScreen: Selfie camera result:', result);
 
       if (!result.canceled && result.assets && result.assets[0]) {
         const photoUri = result.assets[0].uri;
-        console.log('📷 InputScreen: Photo taken, URI:', photoUri);
+        console.log('🤳 InputScreen: Selfie taken, URI:', photoUri);
         
-        // Save photo to local storage
-        console.log('💾 InputScreen: Saving photo to storage...');
-        await PhotoStorageService.saveReferencePhoto(photoUri);
-        setReferenceImage(photoUri);
-        console.log('✅ InputScreen: Photo saved and set in state successfully');
+        // For demo: just set in state temporarily, don't save to storage
+        setSelfieImage(photoUri);
+        console.log('✅ InputScreen: Selfie set in state (demo only)');
+        
+        // Show success message and clear after 2 seconds
+        Alert.alert('Photo Uploaded!', 'Your photo has been uploaded successfully.');
+        setTimeout(() => {
+          setSelfieImage(null);
+          console.log('🗑️ InputScreen: Demo selfie cleared after 2 seconds');
+        }, 2000);
       } else {
-        console.log('❌ InputScreen: Camera was canceled');
+        console.log('❌ InputScreen: Selfie camera was canceled');
       }
     } catch (error) {
-      console.error('💥 InputScreen: Camera error:', error);
-      Alert.alert('Error', 'Failed to take photo. Please try again.');
+      console.error('💥 InputScreen: Selfie camera error:', error);
+      Alert.alert('Error', 'Failed to take selfie. Please try again.');
     }
   };
 
-  const handleChooseFromGallery = async () => {
-    console.log('🖼️ InputScreen: Choose from gallery button pressed');
+  const handleUploadReferencePhoto = async (isPartner: boolean = false) => {
+    console.log(`📷 InputScreen: Upload ${isPartner ? 'partner' : 'reference'} photo button pressed`);
     
     try {
-      // Request media library permissions first
       console.log('🔐 InputScreen: Requesting media library permissions...');
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       console.log('🔐 InputScreen: Media library permission result:', permissionResult);
-      console.log('🔐 InputScreen: Permission granted:', permissionResult.granted);
-      console.log('🔐 InputScreen: Permission status:', permissionResult.status);
       
       if (permissionResult.granted === false) {
         console.log('❌ InputScreen: Media library permission denied');
@@ -143,10 +190,8 @@ export default function InputScreen({ navigation }: Props) {
         return;
       }
 
-      console.log('📱 InputScreen: Permissions OK, launching image library...');
-      console.log('📱 InputScreen: About to call launchImageLibraryAsync...');
+      console.log(`📱 InputScreen: Launching image library for ${isPartner ? 'partner' : 'reference'} photo...`);
       
-      // Add timeout to detect if ImagePicker is hanging
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('ImagePicker timeout after 10 seconds')), 10000);
       });
@@ -160,29 +205,32 @@ export default function InputScreen({ navigation }: Props) {
         timeoutPromise
       ]) as ImagePicker.ImagePickerResult;
       
-      console.log('📱 InputScreen: Image picker completed successfully!');
-      console.log('📱 InputScreen: Full result object:', JSON.stringify(result, null, 2));
-      console.log('📱 InputScreen: Result canceled:', result.canceled);
+      console.log(`📱 InputScreen: ${isPartner ? 'Partner' : 'Reference'} photo picker completed!`);
       
       if (!result.canceled && result.assets && result.assets[0]) {
         const photoUri = result.assets[0].uri;
-        console.log('📷 InputScreen: Got photo URI:', photoUri);
-        console.log('📷 InputScreen: Saving to storage...');
+        console.log(`📷 InputScreen: ${isPartner ? 'Partner' : 'Reference'} photo selected, URI:`, photoUri);
         
-        // Save to storage like camera does
-        await PhotoStorageService.saveReferencePhoto(photoUri);
-        setReferenceImage(photoUri);
-        console.log('✅ InputScreen: Photo saved and set in state successfully');
+        if (isPartner) {
+          // For now, just store in state - we can add partner photo storage later if needed
+          setPartnerReferenceImage(photoUri);
+          console.log('✅ InputScreen: Partner photo set in state');
+        } else {
+          // Save to storage - this will be used for API calls
+          await PhotoStorageService.saveReferencePhoto(photoUri);
+          setReferenceImage(photoUri);
+          console.log('✅ InputScreen: Reference photo saved for API use');
+        }
       } else {
-        console.log('❌ InputScreen: No photo selected or result was canceled');
+        console.log(`❌ InputScreen: No ${isPartner ? 'partner' : 'reference'} photo selected`);
       }
     } catch (error) {
-      console.error('💥 InputScreen: Gallery selection error:', error);
-      console.error('💥 InputScreen: Error details:', JSON.stringify(error, null, 2));
+      console.error(`💥 InputScreen: ${isPartner ? 'Partner' : 'Reference'} photo selection error:`, error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Error', `Failed to select photo from gallery: ${errorMessage}`);
+      Alert.alert('Error', `Failed to select ${isPartner ? 'partner' : 'reference'} photo: ${errorMessage}`);
     }
   };
+
 
   const handlePhotoButtonPress = () => {
     console.log('🎯 InputScreen: Photo button pressed - toggling options');
@@ -218,8 +266,14 @@ export default function InputScreen({ navigation }: Props) {
       return;
     }
 
+    if (isCoupleMode && !partnerReferenceImage) {
+      Alert.alert('Partner Photo Required', 'Please upload a reference photo for your partner to find coordinating outfits.');
+      return;
+    }
+
     setIsLoading(true);
     setHasStartedChat(true); // Only hide suggestions when actually sending
+    startRotation(); // Start hourglass rotation
 
     // Simulate Gray Whale API call
     setTimeout(async () => {
@@ -227,12 +281,18 @@ export default function InputScreen({ navigation }: Props) {
         // Get the latest photo from storage
         const storedPhoto = await PhotoStorageService.getReferencePhoto();
         
+        // Select Gray Whale project based on message heuristics
+        const lower = message.trim().toLowerCase();
+        const grayWhaleProjectKey: 'A' | 'B' =
+          lower.includes('wedding') || lower.includes('formal') ? 'A' : 'B';
+
         const preferences: UserPreferences = {
           eventType: 'custom',
           stylePrompt: message.trim(),
           referenceImage: storedPhoto || referenceImage,
           likedOutfits: [],
           dislikedOutfits: [],
+          grayWhaleProjectKey,
           sizePreferences: {
             top: 'M',
             bottom: 'M',
@@ -246,9 +306,11 @@ export default function InputScreen({ navigation }: Props) {
         };
 
         navigation.navigate('RecommendationScreen', { preferences });
+        stopRotation(); // Stop hourglass rotation
         setIsLoading(false);
       } catch (error) {
         console.error('Error preparing recommendations:', error);
+        stopRotation(); // Stop hourglass rotation
         setIsLoading(false);
       }
     }, 2000);
@@ -265,6 +327,26 @@ export default function InputScreen({ navigation }: Props) {
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>FittedAI</Text>
             <Text style={styles.headerSubtitle}>Your AI Style Assistant</Text>
+            
+            {/* Mode Toggle - always present */}
+            <View style={styles.modeToggleContainer}>
+              <TouchableOpacity
+                style={[styles.modeToggleButton, !isCoupleMode && styles.modeToggleButtonActive]}
+                onPress={() => setIsCoupleMode(false)}
+              >
+                <Text style={[styles.modeToggleText, !isCoupleMode && styles.modeToggleTextActive]}>
+                  Just Me
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modeToggleButton, isCoupleMode && styles.modeToggleButtonActive]}
+                onPress={() => setIsCoupleMode(true)}
+              >
+                <Text style={[styles.modeToggleText, isCoupleMode && styles.modeToggleTextActive]}>
+                  Couple
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -299,22 +381,58 @@ export default function InputScreen({ navigation }: Props) {
 
         {/* Bottom Input Area */}
         <View style={styles.inputArea}>
-          {/* Reference Image Status - Only show when image is added */}
-          {referenceImage && (
-            <View style={styles.imageStatus}>
-              <TouchableOpacity 
-                style={styles.imageStatusContent} 
-                onPress={handlePhotoButtonPress}
-              >
-                <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-                <View style={styles.imageStatusTextContainer}>
-                  <Text style={styles.imageStatusText}>Reference photo added</Text>
-                  <Text style={styles.imageStatusSubtext}>Tap to change</Text>
+          {/* Photo Status - Show both types when they exist */}
+          {(referenceImage || selfieImage || partnerReferenceImage) && (
+            <View style={styles.photoStatusContainer}>
+              {selfieImage && (
+                <View style={styles.imageStatus}>
+                  <View style={styles.imageStatusContent}>
+                    <Ionicons name="person-circle" size={20} color="#8b5cf6" />
+                    <View style={styles.imageStatusTextContainer}>
+                      <Text style={styles.imageStatusText}>Selfie uploaded</Text>
+                      <Text style={styles.imageStatusSubtext}>Demo only</Text>
+                    </View>
+                  </View>
                 </View>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={clearPhoto} style={styles.clearPhotoButton}>
-                <Ionicons name="close" size={16} color="#6b7280" />
-              </TouchableOpacity>
+              )}
+              
+              {referenceImage && (
+                <View style={styles.imageStatus}>
+                  <TouchableOpacity 
+                    style={styles.imageStatusContent} 
+                    onPress={handlePhotoButtonPress}
+                  >
+                    <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+                    <View style={styles.imageStatusTextContainer}>
+                      <Text style={styles.imageStatusText}>
+                        {isCoupleMode ? 'Your reference photo added' : 'Reference photo added'}
+                      </Text>
+                      <Text style={styles.imageStatusSubtext}>Tap to change</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={clearPhoto} style={styles.clearPhotoButton}>
+                    <Ionicons name="close" size={16} color="#6b7280" />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {isCoupleMode && partnerReferenceImage && (
+                <View style={styles.imageStatus}>
+                  <TouchableOpacity 
+                    style={styles.imageStatusContent} 
+                    onPress={handlePhotoButtonPress}
+                  >
+                    <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+                    <View style={styles.imageStatusTextContainer}>
+                      <Text style={styles.imageStatusText}>Partner's reference photo added</Text>
+                      <Text style={styles.imageStatusSubtext}>Tap to change</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setPartnerReferenceImage(null)} style={styles.clearPhotoButton}>
+                    <Ionicons name="close" size={16} color="#6b7280" />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
 
@@ -337,23 +455,37 @@ export default function InputScreen({ navigation }: Props) {
               placeholder="i.e. Indian Wedding, Easter Brunch"
               value={message}
               onChangeText={setMessage}
-              multiline
+              multiline={false}
               maxLength={300}
               returnKeyType="send"
               onSubmitEditing={handleSendMessage}
+              enablesReturnKeyAutomatically={true}
               placeholderTextColor="#9ca3af"
             />
 
             <TouchableOpacity
               style={[
                 styles.sendButton,
-                (!message.trim() || !referenceImage || isLoading) && styles.sendButtonDisabled
+                (!message.trim() || !referenceImage || (isCoupleMode && !partnerReferenceImage) || isLoading) && styles.sendButtonDisabled
               ]}
               onPress={handleSendMessage}
-              disabled={!message.trim() || !referenceImage || isLoading}
+              disabled={!message.trim() || !referenceImage || (isCoupleMode && !partnerReferenceImage) || isLoading}
             >
               {isLoading ? (
-                <Ionicons name="hourglass" size={18} color="#fff" />
+                <Animated.View
+                  style={{
+                    transform: [
+                      {
+                        rotate: rotationAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0deg', '360deg'],
+                        }),
+                      },
+                    ],
+                  }}
+                >
+                  <Ionicons name="hourglass" size={18} color="#fff" />
+                </Animated.View>
               ) : (
                 <Ionicons name="arrow-up" size={18} color="#fff" />
               )}
@@ -368,46 +500,66 @@ export default function InputScreen({ navigation }: Props) {
               style={styles.photoOptionsBackdrop} 
               onPress={() => setShowPhotoOptions(false)}
             />
-            <View style={styles.photoOptionsContainer}>
-              <Text style={styles.photoOptionsTitle}>Add Photo</Text>
+            <View style={[
+              styles.photoOptionsDropdown,
+              {
+                bottom: keyboardHeight > 0 
+                  ? keyboardHeight + 60 // When keyboard is open, position above keyboard with padding
+                  : 90 // When keyboard is closed, position above input area
+              }
+            ]}>
               
               <TouchableOpacity 
                 style={styles.photoOption} 
                 onPress={() => {
-                  console.log('📸 Direct: Take Photo button pressed');
+                  console.log('🤳 Direct: Take Selfie button pressed');
                   setShowPhotoOptions(false);
-                  handleTakePhoto();
+                  handleTakeSelfie();
                 }}
               >
                 <View style={styles.photoOptionIcon}>
-                  <Ionicons name="camera" size={24} color="#111827" />
+                  <Ionicons name="person" size={24} color="#111827" />
                 </View>
-                <Text style={styles.photoOptionText}>Take Photo</Text>
+                <View style={styles.photoOptionTextContainer}>
+                  <Text style={styles.photoOptionText}>Take Photo of Yourself</Text>
+                </View>
               </TouchableOpacity>
               
               <TouchableOpacity 
                 style={styles.photoOption} 
                 onPress={() => {
-                  console.log('🖼️ Direct: Choose from Gallery button pressed');
+                  console.log('📷 Direct: Upload Reference Photo button pressed');
                   setShowPhotoOptions(false);
-                  handleChooseFromGallery();
+                  handleUploadReferencePhoto(false);
                 }}
               >
                 <View style={styles.photoOptionIcon}>
                   <Ionicons name="images" size={24} color="#111827" />
                 </View>
-                <Text style={styles.photoOptionText}>Choose from Gallery</Text>
+                <View style={styles.photoOptionTextContainer}>
+                  <Text style={styles.photoOptionText}>
+                    {isCoupleMode ? 'Upload Your Reference Photo' : 'Upload Reference Photo'}
+                  </Text>
+                </View>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.photoOptionCancel} 
-                onPress={() => {
-                  console.log('❌ Direct: Cancel button pressed');
-                  setShowPhotoOptions(false);
-                }}
-              >
-                <Text style={styles.photoOptionCancelText}>Cancel</Text>
-              </TouchableOpacity>
+
+              {isCoupleMode && (
+                <TouchableOpacity 
+                  style={styles.photoOption} 
+                  onPress={() => {
+                    console.log('👫 Direct: Upload Partner Reference Photo button pressed');
+                    setShowPhotoOptions(false);
+                    handleUploadReferencePhoto(true);
+                  }}
+                >
+                  <View style={styles.photoOptionIcon}>
+                    <Ionicons name="people" size={24} color="#111827" />
+                  </View>
+                  <View style={styles.photoOptionTextContainer}>
+                    <Text style={styles.photoOptionText}>Upload Partner's Reference Photo</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -442,6 +594,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     marginTop: 2,
+  },
+  modeToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    padding: 2,
+    marginTop: 12,
+    alignSelf: 'center',
+  },
+  modeToggleButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 18,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  modeToggleButtonActive: {
+    backgroundColor: '#111827',
+  },
+  modeToggleText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6b7280',
+  },
+  modeToggleTextActive: {
+    color: '#ffffff',
   },
   mainContent: {
     flex: 1,
@@ -495,6 +673,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: '#f3f4f6',
+  },
+  photoStatusContainer: {
+    marginBottom: 12,
   },
   imageStatus: {
     flexDirection: 'row',
@@ -598,8 +779,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
     zIndex: 1000,
   },
   photoOptionsBackdrop: {
@@ -608,62 +787,69 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  photoOptionsContainer: {
+  photoOptionsDropdown: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
     backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 24,
-    marginHorizontal: 40,
+    borderRadius: 16,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
-    minWidth: 280,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+    maxHeight: 300, // Prevent it from getting too tall
   },
   photoOptionsTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#111827',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 4,
+  },
+  photoOptionsSubtitle: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 12,
   },
   photoOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     backgroundColor: '#f9fafb',
-    marginBottom: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
   photoOptionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
+  photoOptionTextContainer: {
+    flex: 1,
+  },
   photoOptionText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
     color: '#111827',
   },
-  photoOptionCancel: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  photoOptionCancelText: {
-    fontSize: 16,
-    fontWeight: '500',
+  photoOptionSubtext: {
+    fontSize: 12,
     color: '#6b7280',
+    marginTop: 2,
   },
 });

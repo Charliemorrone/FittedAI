@@ -9,12 +9,16 @@ import {
   Alert,
   Animated,
   SafeAreaView,
+  Linking,
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { RootStackParamList, UserPreferences, OutfitRecommendation, SwipeAction } from '../types';
+import { RootStackParamList, UserPreferences, OutfitRecommendation, SwipeAction, OutfitItem } from '../types';
+import GrayWhaleService from '../services/grayWhaleService';
+// Import collections data directly as JSON
+import collectionsData from '../assets/images/collections.json';
 
 type RecommendationScreenNavigationProp = StackNavigationProp<RootStackParamList, 'RecommendationScreen'>;
 type RecommendationScreenRouteProp = RouteProp<RootStackParamList, 'RecommendationScreen'>;
@@ -25,7 +29,10 @@ interface Props {
 }
 
 const { width, height } = Dimensions.get('window');
-const SWIPE_THRESHOLD = 120;
+const SWIPE_THRESHOLD = 80;
+const SWIPE_VELOCITY_THRESHOLD = 1000;
+const ROTATION_MULTIPLIER = 0.1;
+const SCALE_MULTIPLIER = 0.05;
 
 // Enhanced mock data with better Gray Whale simulation
 const generateMockRecommendations = (preferences: UserPreferences): OutfitRecommendation[] => {
@@ -156,26 +163,186 @@ export default function RecommendationScreen({ navigation, route }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [swipeActions, setSwipeActions] = useState<SwipeAction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [swipeCount, setSwipeCount] = useState(0);
+  const [isCollectionsMode, setIsCollectionsMode] = useState(false);
+  const [collections, setCollections] = useState<Array<any>>([]);
+  const [isAnimating, setIsAnimating] = useState(false);
 
-  // Animation values
-  const translateX = new Animated.Value(0);
-  const opacity = new Animated.Value(1);
-  const scale = new Animated.Value(1);
+  // Animation values for current card
+  const translateX = useRef(new Animated.Value(0)).current;
+  const rotate = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+  
+  // Next card animations
+  const nextCardScale = useRef(new Animated.Value(0.95)).current;
+  const nextCardOpacity = useRef(new Animated.Value(0.8)).current;
   
   // Button feedback animations
   const likeButtonScale = useRef(new Animated.Value(1)).current;
   const dislikeButtonScale = useRef(new Animated.Value(1)).current;
   const likeButtonOpacity = useRef(new Animated.Value(0.7)).current;
   const dislikeButtonOpacity = useRef(new Animated.Value(0.7)).current;
+  
+  // Swipe indicators
+  const likeIndicatorOpacity = useRef(new Animated.Value(0)).current;
+  const dislikeIndicatorOpacity = useRef(new Animated.Value(0)).current;
+  const likeIndicatorScale = useRef(new Animated.Value(0.8)).current;
+  const dislikeIndicatorScale = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
-    // Simulate Gray Whale algorithm processing
-    setTimeout(() => {
-      const mockRecommendations = generateMockRecommendations(preferences);
-      setRecommendations(mockRecommendations);
-      setIsLoading(false);
-    }, 2500); // Longer delay to show the enhanced loading screen
+    let isMounted = true;
+    (async () => {
+      try {
+        // Try to load local collections first
+        const sets = Array.isArray(collectionsData?.sets) ? collectionsData.sets : [];
+        if (isMounted && sets.length > 0) {
+          setCollections(sets);
+          setIsCollectionsMode(true);
+          setIsLoading(false);
+          return;
+        }
+      } catch (e) {
+        // If reading local collections fails, proceed with API
+      }
+      try {
+        const recs = await GrayWhaleService.getRecommendations(preferences);
+        if (isMounted) {
+          setRecommendations(recs);
+        }
+      } catch (e) {
+        if (isMounted) {
+          const fallback = generateMockRecommendations(preferences);
+          setRecommendations(fallback);
+        }
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
   }, [preferences]);
+
+  // Helper function to extract ASIN from Amazon URL and generate multiple image URL options
+  const getAmazonImageUrls = (amazonUrl: string): string[] => {
+    const imageUrls: string[] = [];
+    
+    try {
+      let urlToProcess = amazonUrl;
+      
+      // Handle URL-encoded Amazon URLs (like the sponsored links)
+      if (amazonUrl.includes('url=') || amazonUrl.includes('%2F')) {
+        try {
+          // Extract the actual URL from sponsored/tracking URLs
+          const urlMatch = amazonUrl.match(/url=([^&]+)/);
+          if (urlMatch) {
+            urlToProcess = decodeURIComponent(urlMatch[1]);
+            // Convert %2F back to /
+            urlToProcess = urlToProcess.replace(/%2F/g, '/');
+            // Ensure it starts with https://
+            if (urlToProcess.startsWith('/')) {
+              urlToProcess = 'https://www.amazon.com' + urlToProcess;
+            }
+          }
+        } catch (e) {
+          console.log('Error decoding URL:', e);
+        }
+      }
+      
+      console.log('Processing URL:', urlToProcess);
+      
+      // Extract ASIN from various Amazon URL formats
+      const asinPatterns = [
+        /\/dp\/([A-Z0-9]{10})/i,
+        /\/gp\/product\/([A-Z0-9]{10})/i,
+        /\/product\/([A-Z0-9]{10})/i,
+        /asin=([A-Z0-9]{10})/i,
+        /\/([A-Z0-9]{10})(?:\/|\?|$)/i
+      ];
+      
+      let asin = null;
+      for (const pattern of asinPatterns) {
+        const match = urlToProcess.match(pattern);
+        if (match && match[1]) {
+          asin = match[1];
+          console.log('Found ASIN:', asin, 'using pattern:', pattern);
+          break;
+        }
+      }
+      
+      if (asin) {
+        // Try multiple Amazon image URL formats
+        imageUrls.push(
+          // Standard Amazon image URLs
+          `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.L.jpg`,
+          `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SX300_SY300_QL70_.jpg`,
+          `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._AC_SX300_SY300_.jpg`,
+          `https://m.media-amazon.com/images/P/${asin}.01._AC_SX300_SY300_.jpg`,
+          `https://m.media-amazon.com/images/P/${asin}.01.L.jpg`,
+          // Alternative formats
+          `https://images-na.ssl-images-amazon.com/images/I/${asin}.01.L.jpg`,
+          `https://images.amazon.com/images/P/${asin}.01.L.jpg`,
+          // Smaller sizes as fallback
+          `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SX200_.jpg`,
+          `https://m.media-amazon.com/images/P/${asin}.01._SX200_.jpg`
+        );
+        console.log('Generated', imageUrls.length, 'image URLs for ASIN:', asin);
+      } else {
+        console.log('No ASIN found in URL:', urlToProcess);
+      }
+    } catch (error) {
+      console.log('Error extracting ASIN from URL:', amazonUrl, error);
+    }
+    
+    return imageUrls;
+  };
+
+  const getAmazonImageUrl = (amazonUrl: string, itemTitle: string): string => {
+    const imageUrls = getAmazonImageUrls(amazonUrl);
+    
+    // Return the first URL to try, the PurchaseScreen will handle fallbacks
+    if (imageUrls.length > 0) {
+      return imageUrls[0];
+    }
+    
+    // Fallback to placeholder with item title
+    const imageText = itemTitle.length > 20 ? itemTitle.substring(0, 20) + '...' : itemTitle;
+    return `https://via.placeholder.com/300x400/6366f1/FFFFFF?text=${encodeURIComponent(imageText)}`;
+  };
+
+  // Animation helper functions
+  const resetCardAnimations = () => {
+    translateX.setValue(0);
+    rotate.setValue(0);
+    opacity.setValue(1);
+    scale.setValue(1);
+    likeIndicatorOpacity.setValue(0);
+    dislikeIndicatorOpacity.setValue(0);
+    likeIndicatorScale.setValue(0.8);
+    dislikeIndicatorScale.setValue(0.8);
+  };
+
+  const animateNextCard = () => {
+    Animated.parallel([
+      Animated.spring(nextCardScale, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 8,
+      }),
+      Animated.spring(nextCardOpacity, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 8,
+      }),
+    ]).start(() => {
+      // Reset next card for the following card
+      nextCardScale.setValue(0.95);
+      nextCardOpacity.setValue(0.8);
+    });
+  };
 
   // Button animation helpers
   const animateButton = (buttonScale: Animated.Value, buttonOpacity: Animated.Value, isLike: boolean) => {
@@ -208,9 +375,17 @@ export default function RecommendationScreen({ navigation, route }: Props) {
     ]).start();
   };
 
-  const handleSwipe = (direction: 'left' | 'right') => {
-    const currentOutfit = recommendations[currentIndex];
-    if (!currentOutfit) return;
+  const handleSwipe = (direction: 'left' | 'right', velocity: number = 0) => {
+    const currentSetLocal = isCollectionsMode ? collections[currentIndex] : null;
+    const currentOutfit = !isCollectionsMode ? recommendations[currentIndex] : null;
+    const currentId = isCollectionsMode ? (currentSetLocal?.id || '') : (currentOutfit?.id || '');
+    if (!currentId) return;
+
+    // Prevent multiple swipes on the same card or during animation
+    const totalCount = isCollectionsMode ? collections.length : recommendations.length;
+    if (currentIndex >= totalCount || isAnimating) return;
+
+    setIsAnimating(true);
 
     // Animate corresponding button
     if (direction === 'right') {
@@ -220,38 +395,61 @@ export default function RecommendationScreen({ navigation, route }: Props) {
     }
 
     const action: SwipeAction = {
-      outfitId: currentOutfit.id,
+      outfitId: currentId,
       action: direction === 'right' ? 'like' : 'dislike',
       timestamp: Date.now(),
     };
 
     setSwipeActions(prev => [...prev, action]);
+    // Fire-and-forget feedback to backend
+    if (!isCollectionsMode) {
+      GrayWhaleService.sendFeedback([action]);
+    }
 
-    // Animate card out with enhanced animations
+    // Calculate animation duration based on velocity
+    const baseDuration = 300;
+    const velocityFactor = Math.min(Math.abs(velocity) / 2000, 1);
+    const duration = Math.max(baseDuration - (velocityFactor * 150), 150);
+
+    // Enhanced swipe out animation - strictly horizontal
+    const exitX = direction === 'right' ? width * 1.5 : -width * 1.5;
+    const exitRotation = direction === 'right' ? 30 : -30;
+    
     Animated.parallel([
       Animated.timing(translateX, {
-        toValue: direction === 'right' ? width * 1.2 : -width * 1.2,
-        duration: 400,
+        toValue: exitX,
+        duration,
+        useNativeDriver: true,
+      }),
+      Animated.timing(rotate, {
+        toValue: exitRotation,
+        duration,
         useNativeDriver: true,
       }),
       Animated.timing(opacity, {
         toValue: 0,
-        duration: 400,
+        duration: duration * 0.8,
         useNativeDriver: true,
       }),
       Animated.timing(scale, {
         toValue: 0.8,
-        duration: 400,
+        duration,
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // Move to next recommendation
-      if (currentIndex < recommendations.length - 1) {
+      // Move to next card
+      const lastIndex = isCollectionsMode ? collections.length - 1 : recommendations.length - 1;
+      if (currentIndex < lastIndex) {
         setCurrentIndex(currentIndex + 1);
-        translateX.setValue(0);
-        opacity.setValue(1);
-        scale.setValue(1);
+        resetCardAnimations();
+        animateNextCard();
+        setIsAnimating(false);
+        // Update swipe count after animation completes
+        setSwipeCount((c) => c + 1);
       } else {
+        setIsAnimating(false);
+        // Update swipe count after animation completes
+        setSwipeCount((c) => c + 1);
         // No more recommendations, show purchase option
         Alert.alert(
           'All Done!',
@@ -265,26 +463,108 @@ export default function RecommendationScreen({ navigation, route }: Props) {
     });
   };
 
-  const handlePurchase = () => {
-    const likedOutfits = swipeActions
-      .filter(action => action.action === 'like')
-      .map(action => action.outfitId);
+  // Auto-refresh after every 5 swipes (less aggressive to avoid animation conflicts)
+  useEffect(() => {
+    if (!isLoading && !isCollectionsMode && swipeCount > 0 && swipeCount % 5 === 0) {
+      // Add a delay to ensure animations complete and avoid conflicts
+      const refreshTimer = setTimeout(async () => {
+        // Double-check we're not animating before refreshing
+        if (!isAnimating) {
+          try {
+            // Re-fetch recommendations. Backend uses prior feedback events to re-rank.
+            const updated = await GrayWhaleService.getRecommendations(preferences);
+            // Replace remaining stack with updated items
+            setRecommendations(updated);
+            setCurrentIndex(0);
+            resetCardAnimations();
+          } catch (e) {
+            // Non-fatal; keep current stack
+          }
+        }
+      }, 1000); // Wait 1 second to ensure all animations are complete
 
-    if (likedOutfits.length === 0) {
-      Alert.alert('No Items Selected', 'Please like some outfits before purchasing.');
+      return () => clearTimeout(refreshTimer);
+    }
+  }, [swipeCount]);
+
+  const handlePurchase = () => {
+    // Get the current outfit being viewed
+    const totalCount = isCollectionsMode ? collections.length : recommendations.length;
+    if (currentIndex >= totalCount) {
+      Alert.alert('No Outfit Available', 'No outfit is currently being displayed.');
       return;
     }
 
-    const likedRecommendations = recommendations.filter(rec => likedOutfits.includes(rec.id));
-    const totalPrice = likedRecommendations.reduce((sum, rec) => 
-      sum + rec.items.reduce((itemSum, item) => itemSum + item.price, 0), 0
-    );
+    let purchaseItems: OutfitItem[] = [];
+    let totalPrice = 0;
+    let currentOutfitId = '';
+
+    if (isCollectionsMode) {
+      // Handle current collection being viewed
+      const currentCollection = collections[currentIndex];
+      if (!currentCollection) {
+        Alert.alert('No Outfit Available', 'No outfit is currently being displayed.');
+        return;
+      }
+
+      currentOutfitId = currentCollection.id;
+      
+      // Convert current collection items to OutfitItem format
+      Object.keys(currentCollection.items).forEach((itemType, index) => {
+        const item = currentCollection.items[itemType];
+        
+        // Extract brand from title if possible
+        const titleParts = item.title.split(' ');
+        const possibleBrand = titleParts.length > 1 ? titleParts[0] : 'Brand';
+        
+        // Estimate price based on item type
+        const estimatedPrice = itemType === 'kurta' ? 45 : 
+                              itemType === 'pants' ? 35 : 
+                              itemType === 'shoes' ? 55 : 
+                              itemType === 'accessory' ? 25 : 0;
+        
+        const outfitItem: OutfitItem = {
+          id: item.id,
+          name: item.title,
+          brand: possibleBrand,
+          price: estimatedPrice,
+          imageUrl: getAmazonImageUrl(item.external_url, item.title),
+          amazonUrl: item.external_url,
+          // Add custom property for multiple image URLs (we'll extend the type)
+          alternativeImageUrls: getAmazonImageUrls(item.external_url),
+          category: itemType === 'kurta' ? 'top' : 
+                   itemType === 'pants' ? 'bottom' : 
+                   itemType === 'shoes' ? 'shoes' : 'accessories',
+          colors: itemType === 'kurta' ? ['Red', 'Multi'] : 
+                 itemType === 'pants' ? ['Multi', 'Cotton'] : 
+                 itemType === 'shoes' ? ['Brown', 'Multi'] : 
+                 ['Cream', 'Traditional'],
+          sizes: itemType === 'kurta' ? ['S', 'M', 'L', 'XL'] : 
+                itemType === 'pants' ? ['30', '32', '34', '36'] : 
+                itemType === 'shoes' ? ['8', '9', '10', '11'] : 
+                ['One Size'],
+        };
+        purchaseItems.push(outfitItem);
+        totalPrice += estimatedPrice;
+      });
+    } else {
+      // Handle current recommendation being viewed
+      const currentRecommendation = recommendations[currentIndex];
+      if (!currentRecommendation) {
+        Alert.alert('No Outfit Available', 'No outfit is currently being displayed.');
+        return;
+      }
+
+      currentOutfitId = currentRecommendation.id;
+      purchaseItems = [...currentRecommendation.items];
+      totalPrice = currentRecommendation.items.reduce((sum, item) => sum + item.price, 0);
+    }
 
     const purchaseItem = {
-      outfitId: 'purchase_' + Date.now(),
-      items: likedRecommendations.flatMap(rec => rec.items),
+      outfitId: currentOutfitId,
+      items: purchaseItems,
       totalPrice,
-      amazonUrls: likedRecommendations.flatMap(rec => rec.items.map(item => item.amazonUrl)),
+      amazonUrls: purchaseItems.map(item => item.amazonUrl),
     };
 
     navigation.navigate('PurchaseScreen', { purchaseItem });
@@ -292,39 +572,125 @@ export default function RecommendationScreen({ navigation, route }: Props) {
 
   const onGestureEvent = Animated.event(
     [{ nativeEvent: { translationX: translateX } }],
-    { useNativeDriver: true }
+    { 
+      useNativeDriver: true,
+      listener: (event: any) => {
+        const { translationX } = event.nativeEvent;
+        
+        // Don't update animations during swipe animation
+        if (isAnimating) return;
+        
+        // Calculate rotation based on horizontal movement only
+        const rotationValue = translationX * ROTATION_MULTIPLIER;
+        rotate.setValue(rotationValue);
+        
+        // Calculate scale based on horizontal distance only
+        const scaleValue = Math.max(0.95, 1 - (Math.abs(translationX) * SCALE_MULTIPLIER) / 1000);
+        scale.setValue(scaleValue);
+        
+        // Show swipe indicators based on direction and distance
+        const swipeStrength = Math.abs(translationX) / SWIPE_THRESHOLD;
+        
+        if (translationX > 20) {
+          // Swiping right (like)
+          const indicatorOpacity = Math.min(swipeStrength, 1);
+          const indicatorScale = 0.8 + (indicatorOpacity * 0.4);
+          likeIndicatorOpacity.setValue(indicatorOpacity);
+          likeIndicatorScale.setValue(indicatorScale);
+          dislikeIndicatorOpacity.setValue(0);
+          dislikeIndicatorScale.setValue(0.8);
+        } else if (translationX < -20) {
+          // Swiping left (dislike)
+          const indicatorOpacity = Math.min(swipeStrength, 1);
+          const indicatorScale = 0.8 + (indicatorOpacity * 0.4);
+          dislikeIndicatorOpacity.setValue(indicatorOpacity);
+          dislikeIndicatorScale.setValue(indicatorScale);
+          likeIndicatorOpacity.setValue(0);
+          likeIndicatorScale.setValue(0.8);
+        } else {
+          // Reset indicators
+          likeIndicatorOpacity.setValue(0);
+          dislikeIndicatorOpacity.setValue(0);
+          likeIndicatorScale.setValue(0.8);
+          dislikeIndicatorScale.setValue(0.8);
+        }
+        
+        // Animate next card based on current card movement
+        const nextCardScaleValue = 0.95 + (Math.abs(translationX) / width) * 0.05;
+        const nextCardOpacityValue = 0.8 + (Math.abs(translationX) / width) * 0.2;
+        nextCardScale.setValue(Math.min(nextCardScaleValue, 1));
+        nextCardOpacity.setValue(Math.min(nextCardOpacityValue, 1));
+      }
+    }
   );
 
   const onHandlerStateChange = (event: any) => {
     if (event.nativeEvent.state === State.END) {
       const { translationX, velocityX } = event.nativeEvent;
       
+      // Don't process gestures during animation
+      if (isAnimating) return;
+      
       // Consider both distance and velocity for more natural swipe detection
-      const shouldSwipe = Math.abs(translationX) > SWIPE_THRESHOLD || Math.abs(velocityX) > 800;
+      const shouldSwipe = Math.abs(translationX) > SWIPE_THRESHOLD || Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD;
       
       if (shouldSwipe) {
-        handleSwipe(translationX > 0 ? 'right' : 'left');
+        handleSwipe(translationX > 0 ? 'right' : 'left', velocityX);
       } else {
-        // Snap back to center with spring animation
+        // Snap back to center with spring animation - horizontal only
         Animated.parallel([
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
-            tension: 100,
-            friction: 8,
+            tension: 150,
+            friction: 10,
+          }),
+          Animated.spring(rotate, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 150,
+            friction: 10,
           }),
           Animated.spring(scale, {
             toValue: 1,
             useNativeDriver: true,
-            tension: 100,
-            friction: 8,
+            tension: 150,
+            friction: 10,
+          }),
+          Animated.timing(likeIndicatorOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dislikeIndicatorOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(likeIndicatorScale, {
+            toValue: 0.8,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dislikeIndicatorScale, {
+            toValue: 0.8,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.spring(nextCardScale, {
+            toValue: 0.95,
+            useNativeDriver: true,
+            tension: 150,
+            friction: 10,
+          }),
+          Animated.spring(nextCardOpacity, {
+            toValue: 0.8,
+            useNativeDriver: true,
+            tension: 150,
+            friction: 10,
           }),
         ]).start();
       }
-    } else if (event.nativeEvent.state === State.ACTIVE) {
-      // Add subtle scale effect during drag
-      const dragScale = 1 - Math.abs(event.nativeEvent.translationX) / (width * 3);
-      scale.setValue(Math.max(0.95, dragScale));
     }
   };
 
@@ -350,7 +716,8 @@ export default function RecommendationScreen({ navigation, route }: Props) {
     );
   }
 
-  if (currentIndex >= recommendations.length) {
+  const totalCount = isCollectionsMode ? collections.length : recommendations.length;
+  if (currentIndex >= totalCount) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.emptyContainer}>
@@ -368,7 +735,8 @@ export default function RecommendationScreen({ navigation, route }: Props) {
     );
   }
 
-  const currentOutfit = recommendations[currentIndex];
+  const currentOutfit = isCollectionsMode ? null : recommendations[currentIndex];
+  const currentSet = isCollectionsMode ? collections[currentIndex] : null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -385,7 +753,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         </View>
         <View style={styles.progressIndicator}>
           <Text style={styles.progressText}>
-            {currentIndex + 1}/{recommendations.length}
+            {currentIndex + 1}/{totalCount}
           </Text>
         </View>
       </View>
@@ -393,10 +761,29 @@ export default function RecommendationScreen({ navigation, route }: Props) {
       {/* Card Stack Container */}
       <View style={styles.cardStackContainer}>
         {/* Background Cards for Stack Effect */}
-        {currentIndex + 1 < recommendations.length && (
-          <View style={[styles.outfitCard, styles.backgroundCard, { transform: [{ scale: 0.95 }] }]}>
+        {(!isCollectionsMode && currentIndex + 1 < recommendations.length) && (
+          <Animated.View 
+            style={[
+              styles.outfitCard, 
+              styles.backgroundCard, 
+              { 
+                transform: [{ scale: nextCardScale }],
+                opacity: nextCardOpacity,
+              }
+            ]}
+          >
             <Image 
               source={{ uri: recommendations[currentIndex + 1].imageUrl }} 
+              style={styles.outfitImage} 
+            />
+          </Animated.View>
+        )}
+        
+        {/* Third card for deeper stack effect */}
+        {(!isCollectionsMode && currentIndex + 2 < recommendations.length) && (
+          <View style={[styles.outfitCard, styles.thirdCard]}>
+            <Image 
+              source={{ uri: recommendations[currentIndex + 2].imageUrl }} 
               style={styles.outfitImage} 
             />
           </View>
@@ -406,6 +793,9 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         <PanGestureHandler
           onGestureEvent={onGestureEvent}
           onHandlerStateChange={onHandlerStateChange}
+          activeOffsetX={[-10, 10]}
+          failOffsetY={[-20, 20]}
+          shouldCancelWhenOutside={false}
         >
           <Animated.View
             style={[
@@ -416,9 +806,9 @@ export default function RecommendationScreen({ navigation, route }: Props) {
                   { translateX },
                   { scale },
                   { 
-                    rotate: translateX.interpolate({
-                      inputRange: [-width, 0, width],
-                      outputRange: ['-15deg', '0deg', '15deg'],
+                    rotate: rotate.interpolate({
+                      inputRange: [-30, 0, 30],
+                      outputRange: ['-30deg', '0deg', '30deg'],
                       extrapolate: 'clamp',
                     })
                   }
@@ -427,50 +817,75 @@ export default function RecommendationScreen({ navigation, route }: Props) {
               },
             ]}
           >
-            <Image source={{ uri: currentOutfit.imageUrl }} style={styles.outfitImage} />
-            
-            {/* Swipe Indicators */}
-            <Animated.View 
-              style={[
-                styles.swipeIndicator,
-                styles.likeIndicator,
-                {
-                  opacity: translateX.interpolate({
-                    inputRange: [0, width / 4],
-                    outputRange: [0, 1],
-                    extrapolate: 'clamp',
-                  }),
-                }
-              ]}
-            >
-              <Ionicons name="heart" size={32} color="#10b981" />
-              <Text style={[styles.indicatorText, { color: '#10b981' }]}>LIKE</Text>
-            </Animated.View>
-            
-            <Animated.View 
-              style={[
-                styles.swipeIndicator,
-                styles.dislikeIndicator,
-                {
-                  opacity: translateX.interpolate({
-                    inputRange: [-width / 4, 0],
-                    outputRange: [1, 0],
-                    extrapolate: 'clamp',
-                  }),
-                }
-              ]}
-            >
-              <Ionicons name="close" size={32} color="#ef4444" />
-              <Text style={[styles.indicatorText, { color: '#ef4444' }]}>PASS</Text>
-            </Animated.View>
+            {isCollectionsMode ? (
+              <View style={{ flex: 1, backgroundColor: '#fff' }}>
+                <View style={styles.collectionHeader}>
+                  <Text style={styles.collectionTitle}>{currentSet?.title}</Text>
+                </View>
+                <View style={styles.collectionItems}>
+                  {currentSet && Object.keys(currentSet.items).map((key) => {
+                    const item = (currentSet as any).items[key];
+                    return (
+                      <TouchableOpacity key={item.id} style={styles.collectionItem} onPress={() => Linking.openURL(item.external_url)}>
+                        <View style={styles.collectionItemIcon}>
+                          <Ionicons name="pricetag" size={18} color="#111827" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.collectionItemTitle}>{item.title}</Text>
+                          <Text style={styles.collectionItemSub}>{key}</Text>
+                        </View>
+                        <Ionicons name="open" size={16} color="#6b7280" />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : (
+              <>
+                <Image source={{ uri: currentOutfit?.imageUrl || '' }} style={styles.outfitImage} />
+                
+                {/* Enhanced Swipe Indicators */}
+                <Animated.View 
+                  style={[
+                    styles.swipeIndicator,
+                    styles.likeIndicator,
+                    {
+                      opacity: likeIndicatorOpacity,
+                      transform: [{ scale: likeIndicatorScale }],
+                    }
+                  ]}
+                >
+                  <View style={styles.indicatorIconContainer}>
+                    <Ionicons name="heart" size={28} color="#10b981" />
+                  </View>
+                  <Text style={[styles.indicatorText, { color: '#10b981' }]}>LIKE</Text>
+                </Animated.View>
+                
+                <Animated.View 
+                  style={[
+                    styles.swipeIndicator,
+                    styles.dislikeIndicator,
+                    {
+                      opacity: dislikeIndicatorOpacity,
+                      transform: [{ scale: dislikeIndicatorScale }],
+                    }
+                  ]}
+                >
+                  <View style={styles.indicatorIconContainer}>
+                    <Ionicons name="close" size={28} color="#ef4444" />
+                  </View>
+                  <Text style={[styles.indicatorText, { color: '#ef4444' }]}>PASS</Text>
+                </Animated.View>
 
-            {/* Outfit Info Overlay */}
-            <View style={styles.outfitInfoOverlay}>
-              <Text style={styles.outfitDescription}>{currentOutfit.styleDescription}</Text>
-              <Text style={styles.confidence}>
-                {Math.round(currentOutfit.confidence * 100)}% Match
-              </Text>
-            </View>
+                {/* Outfit Info Overlay */}
+                <View style={styles.outfitInfoOverlay}>
+                  <Text style={styles.outfitDescription}>{currentOutfit?.styleDescription || 'Style Match'}</Text>
+                  <Text style={styles.confidence}>
+                    {Math.round((currentOutfit?.confidence || 0) * 100)}% Match
+                  </Text>
+                </View>
+              </>
+            )}
           </Animated.View>
         </PanGestureHandler>
       </View>
@@ -480,28 +895,28 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         <Animated.View style={{ transform: [{ scale: dislikeButtonScale }], opacity: dislikeButtonOpacity }}>
           <TouchableOpacity
             style={[styles.actionButton, styles.dislikeButton]}
-            onPress={() => handleSwipe('left')}
-            activeOpacity={0.8}
+            onPress={() => handleSwipe('left', 0)}
+            activeOpacity={0.7}
           >
-            <Ionicons name="thumbs-down" size={24} color="#ffffff" />
+            <Ionicons name="close" size={28} color="#ffffff" />
           </TouchableOpacity>
         </Animated.View>
 
         <TouchableOpacity
           style={[styles.actionButton, styles.shopButton]}
           onPress={handlePurchase}
-          activeOpacity={0.8}
+          activeOpacity={0.7}
         >
-          <Ionicons name="bag" size={24} color="#ffffff" />
+          <Ionicons name="bag" size={26} color="#ffffff" />
         </TouchableOpacity>
 
         <Animated.View style={{ transform: [{ scale: likeButtonScale }], opacity: likeButtonOpacity }}>
           <TouchableOpacity
             style={[styles.actionButton, styles.likeButton]}
-            onPress={() => handleSwipe('right')}
-            activeOpacity={0.8}
+            onPress={() => handleSwipe('right', 0)}
+            activeOpacity={0.7}
           >
-            <Ionicons name="thumbs-up" size={24} color="#ffffff" />
+            <Ionicons name="heart" size={26} color="#ffffff" />
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -637,6 +1052,11 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     zIndex: 1,
   },
+  thirdCard: {
+    opacity: 0.6,
+    zIndex: 0,
+    transform: [{ scale: 0.9 }],
+  },
   mainCard: {
     zIndex: 2,
   },
@@ -665,6 +1085,15 @@ const styles = StyleSheet.create({
   },
   dislikeIndicator: {
     left: 30,
+  },
+  indicatorIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   indicatorText: {
     fontSize: 16,
@@ -743,5 +1172,57 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  // Collection Styles
+  collectionHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+  },
+  collectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  collectionItems: {
+    flex: 1,
+    padding: 16,
+  },
+  collectionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  collectionItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  collectionItemTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 2,
+    lineHeight: 18,
+  },
+  collectionItemSub: {
+    fontSize: 12,
+    color: '#6b7280',
+    textTransform: 'capitalize',
   },
 });

@@ -1,0 +1,342 @@
+{
+    "sets": [
+      {
+        "id": "set_red_001",
+        "title": "Red kurta | Pants: Linen Cotton (Multi) | Stole: Cream | Shoes: Brown",
+        "items": {
+          "kurta": {
+            "title": "Majesnic Premium Lightweight Comfortable Traditional Kurta (Red)",
+            "id": "kurta_003",
+            "external_url": "https://www.amazon.com/sspa/click?ie=UTF8&spc=MTo4ODgzNjExMDExNzU1Mjk5OjE3NTc4MTI5OTY6c3BfYXRmOjMwMDY5NDE3MTE3MjEwMjo6MDo6&url=%2FMajesnic-Premium-Lightweight-Comfortable-Traditional%2Fdp%2FB0DSV6PW23%2Fref%3Dsr_1_3_sspa%3Fcrid%3D2FXGQ8J0BB44R%26dib%3DeyJ2IjoiMSJ9.M5TVd3Knh-C4jQwJo0PebE07i4sTYbxEp_dxiAYrrh12l5mw-GWy2Td9gIHsRfvB4Pd__8PK0AwB656jW1h03DIpTLAFTc-c-LjvdWHYYeWpBcb0s6ABXDdY012XWkjZRfKJajfcwlJkeP9yXn7lwTyKQQVTTRziVxML3MReRRzPtrxaxcjDka6cqQ2qR91SHC9ej-Fn1eoxiU-mpnXXt86E--n9OdtAiStfhKkKgtl7w19z6MTZD34lY94sl_V35ivR2G0W12XA9PgD74odjdN07wbgfhYfuH0oJNwbHkM.JE0gNGtpcYEDvryky4Py82buxDCqyG1YiM362me4iDU%26dib_tag%3Dse%26keywords%3Dred%2Bkurta%26qid%3D1757812996%26sprefix%3Dred%2Bkur%252Caps%252C222%26sr%3D8-3-spons%26sp_csd%3Dd2lkZ2V0TmFtZT1zcF9hdGY%26psc%3D1"
+          },
+          "pants": {
+            "title": "Men's Kaftan Linen Cotton Pants Casual Kurta Elastic Waist",
+            "id": "pants_002",
+            "external_url": "https://www.amazon.com/PASLTER-Kaftan-Cotton-Elastic-Trousers/dp/B0D4QCPKM8/ref=sr_1_2"
+          },
+          "shoes": {
+            "title": "BATA Men's Slip-On Punjabi Mojari Jalsa Traditional Ethnic Flats",
+            "id": "shoes_001",
+            "external_url": "https://www.amazon.com/BATA-Slipon-Mojari-Jalsa-Brown/dp/B096BH2VY7/ref=sr_1_1_sspa"
+          },
+          "accessory": {
+            "title": "Traditional Cream Wedding Handmade Dupatta/Stole",
+            "id": "accessories_003",
+            "external_url": "https://www.amazon.com/Traditional-Scarves-Wedding-Handmade-Dupatta/dp/B0B65FLKVG/ref=sr_1_4"
+          }
+        }
+      },
+      {
+        "id": "set_red_002",
+        "title": "Red cotton kurta | Pants: Cotton (Multi) | Stole: Cream | Shoes: Multi (Jutti)",
+        "items": {
+          "kurta": {
+            "title": "SKAVIJ Kurta Pajama Long Sleeve Cotton (Red)",
+            "id": "kurta_004",
+            "external_url": "https://www.amazon.com/sspa/click?ie=UTF8&spc=MTo4ODgzNjExMDExNzU1Mjk5OjE3NTc4MTI5OTY6c3BfYXRmOjMwMDg4ODIwMDg0MjQwMjo6MDo6&url=%2FSKAVIJ-Kurta-Pajama-Sleeve-Cotton%2Fdp%2FB0967Y1CSV%2Fref%3Dsr_1_4_sspa"
+          },
+          "pants": {
+            "title": "Men's Kaftan Thobe Pants Cotton Casual Elastic Waist",
+            "id": "pants_001",
+            "external_url": "https://www.amazon.com/Runcati-Elastic-Drawstring-Trousers-Pockets/dp/B0DPG38J9Z/ref=sr_1_1_sspa"
+          },
+          "shoes": {
+            "title": "BombayFlow RANVEER Punjabi Jutti Indian Flats Handmade Shoes",
+            "id": "shoes_002",
+            "external_url": "https://www.amazon.com/BombayFlow-RANVEER-Punjabi-Jutti-Handmade/dp/B0DGKWNPKP/ref=sr_1_2"
+          },
+          "accessory": {
+            "title": "Traditional Cream Wedding Handmade Dupatta/Stole",
+            "id": "accessories_003",
+            "external_url": "https://www.amazon.com/Traditional-Scarves-Wedding-Handmade-Dupatta/dp/B0B65FLKVG/ref=sr_1_4"
+          }
+        }
+      },
+      {
+        "id": "set_red_003",
+        "title": "Red jacquard kurta | Pants: Linen Cotton (Multi) | Stole: Cream | Shoes: Brown",
+        "items": {
+          "kurta": {
+            "title": "Sojanya Jacquard Thread Design Kurta (Red)",
+            "id": "kurta_005",
+            "external_url": "https://www.amazon.com/Sojanya-Since-Jacquard-Thread-Design/dp/B0DZTN1BG4/ref=sr_1_9"
+          },
+          "pants": {
+            "title": "Men's Kaftan Linen Cotton Pants Casual Kurta Elastic Waist",
+            "id": "pants_002",
+            "external_url": "https://www.amazon.com/PASLTER-Kaftan-Cotton-Elastic-Trousers/dp/B0D4QCPKM8/ref=sr_1_2"
+          },
+          "shoes": {
+            "title": "BATA Men's Slip-On Punjabi Mojari Jalsa Traditional Ethnic Flats",
+            "id": "shoes_001",
+            "external_url": "https://www.amazon.com/BATA-Slipon-Mojari-Jalsa-Brown/dp/B096BH2VY7/ref=sr_1_1_sspa"
+          },
+          "accessory": {
+            "title": "Traditional Cream Wedding Handmade Dupatta/Stole",
+            "id": "accessories_003",
+            "external_url": "https://www.amazon.com/Traditional-Scarves-Wedding-Handmade-Dupatta/dp/B0B65FLKVG/ref=sr_1_4"
+          }
+        }
+      },
+      {
+        "id": "set_red_004",
+        "title": "Red kurta | Pants: Cotton (Multi) | Stole: Gold | Shoes: Multi (Jutti)",
+        "items": {
+          "kurta": {
+            "title": "Majesnic Premium Lightweight Comfortable Traditional Kurta (Red)",
+            "id": "kurta_003",
+            "external_url": "https://www.amazon.com/sspa/click?ie=UTF8&spc=MTo4ODgzNjExMDExNzU1Mjk5OjE3NTc4MTI5OTY6c3BfYXRmOjMwMDY5NDE3MTE3MjEwMjo6MDo6&url=%2FMajesnic-Premium-Lightweight-Comfortable-Traditional%2Fdp%2FB0DSV6PW23"
+          },
+          "pants": {
+            "title": "Men's Kaftan Thobe Pants Cotton Casual Elastic Waist",
+            "id": "pants_001",
+            "external_url": "https://www.amazon.com/Runcati-Elastic-Drawstring-Trousers-Pockets/dp/B0DPG38J9Z/ref=sr_1_1_sspa"
+          },
+          "shoes": {
+            "title": "BombayFlow RANVEER Punjabi Jutti Indian Flats Handmade Shoes",
+            "id": "shoes_002",
+            "external_url": "https://www.amazon.com/BombayFlow-RANVEER-Punjabi-Jutti-Handmade/dp/B0DGKWNPKP/ref=sr_1_2"
+          },
+          "accessory": {
+            "title": "Men's Banarasi Woven Poly Silk Dupatta Traditional Ethnic Stole (Gold)",
+            "id": "accessories_002",
+            "external_url": "https://www.amazon.com/Weavers-Villa-Banarasi-Traditional-Sherwani/dp/B0F5QJLHHT/ref=sr_1_2"
+          }
+        }
+      },
+      {
+        "id": "set_white_001",
+        "title": "White kurta | Pants: Linen Cotton (Multi) | Stole: Gold | Shoes: Brown",
+        "items": {
+          "kurta": {
+            "title": "TOSQP27 Cotton Kurta Pajama Set (White)",
+            "id": "kurta_006",
+            "external_url": "https://www.amazon.com/sspa/click?ie=UTF8&spc=MToxNDA0MDk3MTUxOTQ3MTczOjE3NTc4MTMyMDI6c3BfYXRmOjMwMDI2ODY4Mjg3NDEwMjo6MDo6&url=%2FTOSQP27-Cotton-Pajamas-Ethnic-Wedding%2Fdp%2FB0D7CCFC6G%2Fref%3Dsr_1_2_sspa"
+          },
+          "pants": {
+            "title": "Men's Kaftan Linen Cotton Pants Casual Kurta Elastic Waist",
+            "id": "pants_002",
+            "external_url": "https://www.amazon.com/PASLTER-Kaftan-Cotton-Elastic-Trousers/dp/B0D4QCPKM8/ref=sr_1_2"
+          },
+          "shoes": {
+            "title": "BATA Men's Slip-On Punjabi Mojari Jalsa Traditional Ethnic Flats",
+            "id": "shoes_001",
+            "external_url": "https://www.amazon.com/BATA-Slipon-Mojari-Jalsa-Brown/dp/B096BH2VY7/ref=sr_1_1_sspa"
+          },
+          "accessory": {
+            "title": "Men's Banarasi Woven Poly Silk Dupatta Traditional Ethnic Stole (Gold)",
+            "id": "accessories_002",
+            "external_url": "https://www.amazon.com/Weavers-Villa-Banarasi-Traditional-Sherwani/dp/B0F5QJLHHT/ref=sr_1_2"
+          }
+        }
+      },
+      {
+        "id": "set_white_002",
+        "title": "White kurta | Pants: Cotton (Multi) | Stole: Cream | Shoes: Multi (Jutti)",
+        "items": {
+          "kurta": {
+            "title": "TOSQP27 Cotton Kurta Pajama Set (White)",
+            "id": "kurta_006",
+            "external_url": "https://www.amazon.com/sspa/click?ie=UTF8&spc=MToxNDA0MDk3MTUxOTQ3MTczOjE3NTc4MTMyMDI6c3BfYXRmOjMwMDI2ODY4Mjg3NDEwMjo6MDo6&url=%2FTOSQP27-Cotton-Pajamas-Ethnic-Wedding%2Fdp%2FB0D7CCFC6G%2Fref%3Dsr_1_2_sspa"
+          },
+          "pants": {
+            "title": "Men's Kaftan Thobe Pants Cotton Casual Elastic Waist",
+            "id": "pants_001",
+            "external_url": "https://www.amazon.com/Runcati-Elastic-Drawstring-Trousers-Pockets/dp/B0DPG38J9Z/ref=sr_1_1_sspa"
+          },
+          "shoes": {
+            "title": "BombayFlow RANVEER Punjabi Jutti Indian Flats Handmade Shoes",
+            "id": "shoes_002",
+            "external_url": "https://www.amazon.com/BombayFlow-RANVEER-Punjabi-Jutti-Handmade/dp/B0DGKWNPKP/ref=sr_1_2"
+          },
+          "accessory": {
+            "title": "Traditional Cream Wedding Handmade Dupatta/Stole",
+            "id": "accessories_003",
+            "external_url": "https://www.amazon.com/Traditional-Scarves-Wedding-Handmade-Dupatta/dp/B0B65FLKVG/ref=sr_1_4"
+          }
+        }
+      },
+      {
+        "id": "set_white_003",
+        "title": "White kurta | Pants: Linen Cotton (Multi) | Stole: Cream | Shoes: Brown",
+        "items": {
+          "kurta": {
+            "title": "TOSQP27 Cotton Kurta Pajama Set (White)",
+            "id": "kurta_006",
+            "external_url": "https://www.amazon.com/sspa/click?ie=UTF8&spc=MToxNDA0MDk3MTUxOTQ3MTczOjE3NTc4MTMyMDI6c3BfYXRmOjMwMDI2ODY4Mjg3NDEwMjo6MDo6&url=%2FTOSQP27-Cotton-Pajamas-Ethnic-Wedding%2Fdp%2FB0D7CCFC6G%2Fref%3Dsr_1_2_sspa"
+          },
+          "pants": {
+            "title": "Men's Kaftan Linen Cotton Pants Casual Kurta Elastic Waist",
+            "id": "pants_002",
+            "external_url": "https://www.amazon.com/PASLTER-Kaftan-Cotton-Elastic-Trousers/dp/B0D4QCPKM8/ref=sr_1_2"
+          },
+          "shoes": {
+            "title": "BATA Men's Slip-On Punjabi Mojari Jalsa Traditional Ethnic Flats",
+            "id": "shoes_001",
+            "external_url": "https://www.amazon.com/BATA-Slipon-Mojari-Jalsa-Brown/dp/B096BH2VY7/ref=sr_1_1_sspa"
+          },
+          "accessory": {
+            "title": "Traditional Cream Wedding Handmade Dupatta/Stole",
+            "id": "accessories_003",
+            "external_url": "https://www.amazon.com/Traditional-Scarves-Wedding-Handmade-Dupatta/dp/B0B65FLKVG/ref=sr_1_4"
+          }
+        }
+      },
+      {
+        "id": "set_blue_001",
+        "title": "Blue kurta | Pants: Linen Cotton (Multi) | Stole: Gold | Shoes: Brown",
+        "items": {
+          "kurta": {
+            "title": "Men's Blue Kurta Pajama Set Wedding Kurta Pyjama",
+            "id": "kurta_001",
+            "external_url": "https://www.amazon.com/Sonisha-Pajama-Indian-Traditional-Outfit/dp/B098PLPDRT/ref=sr_1_1"
+          },
+          "pants": {
+            "title": "Men's Kaftan Linen Cotton Pants Casual Kurta Elastic Waist",
+            "id": "pants_002",
+            "external_url": "https://www.amazon.com/PASLTER-Kaftan-Cotton-Elastic-Trousers/dp/B0D4QCPKM8/ref=sr_1_2"
+          },
+          "shoes": {
+            "title": "BATA Men's Slip-On Punjabi Mojari Jalsa Traditional Ethnic Flats",
+            "id": "shoes_001",
+            "external_url": "https://www.amazon.com/BATA-Slipon-Mojari-Jalsa-Brown/dp/B096BH2VY7/ref=sr_1_1_sspa"
+          },
+          "accessory": {
+            "title": "Men's Banarasi Woven Poly Silk Dupatta Traditional Ethnic Stole (Gold)",
+            "id": "accessories_002",
+            "external_url": "https://www.amazon.com/Weavers-Villa-Banarasi-Traditional-Sherwani/dp/B0F5QJLHHT/ref=sr_1_2"
+          }
+        }
+      },
+      {
+        "id": "set_blue_002",
+        "title": "Blue kurta | Pants: Cotton (Multi) | Stole: Cream | Shoes: Multi (Jutti)",
+        "items": {
+          "kurta": {
+            "title": "Men's Blue Kurta Pajama Set Wedding Kurta Pyjama",
+            "id": "kurta_001",
+            "external_url": "https://www.amazon.com/Sonisha-Pajama-Indian-Traditional-Outfit/dp/B098PLPDRT/ref=sr_1_1"
+          },
+          "pants": {
+            "title": "Men's Kaftan Thobe Pants Cotton Casual Elastic Waist",
+            "id": "pants_001",
+            "external_url": "https://www.amazon.com/Runcati-Elastic-Drawstring-Trousers-Pockets/dp/B0DPG38J9Z/ref=sr_1_1_sspa"
+          },
+          "shoes": {
+            "title": "BombayFlow RANVEER Punjabi Jutti Indian Flats Handmade Shoes",
+            "id": "shoes_002",
+            "external_url": "https://www.amazon.com/BombayFlow-RANVEER-Punjabi-Jutti-Handmade/dp/B0DGKWNPKP/ref=sr_1_2"
+          },
+          "accessory": {
+            "title": "Traditional Cream Wedding Handmade Dupatta/Stole",
+            "id": "accessories_003",
+            "external_url": "https://www.amazon.com/Traditional-Scarves-Wedding-Handmade-Dupatta/dp/B0B65FLKVG/ref=sr_1_4"
+          }
+        }
+      },
+      {
+        "id": "set_sherwani_001",
+        "title": "Multi sherwani | Pants: Cotton (Multi) | Stole: Multi | Shoes: Multi (Jutti)",
+        "items": {
+          "sherwani": {
+            "title": "Men's Kurta Sherwani Coats Kaftan Indian Ethnic Royal Suits",
+            "id": "sherwani_002",
+            "external_url": "https://www.amazon.com/Runcati-Sherwani-Mandarin-Wedding-Festive/dp/B0F482B8K8/ref=sr_1_2"
+          },
+          "pants": {
+            "title": "Men's Kaftan Thobe Pants Cotton Casual Elastic Waist",
+            "id": "pants_001",
+            "external_url": "https://www.amazon.com/Runcati-Elastic-Drawstring-Trousers-Pockets/dp/B0DPG38J9Z/ref=sr_1_1_sspa"
+          },
+          "shoes": {
+            "title": "BombayFlow RANVEER Punjabi Jutti Indian Flats Handmade Shoes",
+            "id": "shoes_002",
+            "external_url": "https://www.amazon.com/BombayFlow-RANVEER-Punjabi-Jutti-Handmade/dp/B0DGKWNPKP/ref=sr_1_2"
+          },
+          "accessory": {
+            "title": "Men Shawl Scarf Dupatta Stole Match On Sherwani Kurta (Multi)",
+            "id": "accessories_001",
+            "external_url": "https://www.amazon.com/Apparelsonline-Dupatta-Shawl-Kurta-Sherwani/dp/B01N2T2WII/ref=sr_1_1"
+          }
+        }
+      },
+      {
+        "id": "set_sherwani_002",
+        "title": "Multi sherwani | Pants: Linen Cotton (Multi) | Stole: Gold | Shoes: Brown",
+        "items": {
+          "sherwani": {
+            "title": "Men's Kurta Sherwani Coats Kaftan Indian Ethnic Royal Suits",
+            "id": "sherwani_002",
+            "external_url": "https://www.amazon.com/Runcati-Sherwani-Mandarin-Wedding-Festive/dp/B0F482B8K8/ref=sr_1_2"
+          },
+          "pants": {
+            "title": "Men's Kaftan Linen Cotton Pants Casual Kurta Elastic Waist",
+            "id": "pants_002",
+            "external_url": "https://www.amazon.com/PASLTER-Kaftan-Cotton-Elastic-Trousers/dp/B0D4QCPKM8/ref=sr_1_2"
+          },
+          "shoes": {
+            "title": "BATA Men's Slip-On Punjabi Mojari Jalsa Traditional Ethnic Flats",
+            "id": "shoes_001",
+            "external_url": "https://www.amazon.com/BATA-Slipon-Mojari-Jalsa-Brown/dp/B096BH2VY7/ref=sr_1_1_sspa"
+          },
+          "accessory": {
+            "title": "Men's Banarasi Woven Poly Silk Dupatta Traditional Ethnic Stole (Gold)",
+            "id": "accessories_002",
+            "external_url": "https://www.amazon.com/Weavers-Villa-Banarasi-Traditional-Sherwani/dp/B0F5QJLHHT/ref=sr_1_2"
+          }
+        }
+      },
+      {
+        "id": "set_silk_001",
+        "title": "Art silk kurta (Multi) | Pants: Linen Cotton (Multi) | Stole: Gold | Shoes: Brown",
+        "items": {
+          "sherwani": {
+            "title": "Men's Tunic Art Silk Kurta Pajama Set Wedding Party Dress",
+            "id": "sherwani_001",
+            "external_url": "https://www.amazon.com/SKAVIJ-Tunic-Kurta-Pajama-Summer/dp/B088ZN91GR/ref=sr_1_1_sspa"
+          },
+          "pants": {
+            "title": "Men's Kaftan Linen Cotton Pants Casual Kurta Elastic Waist",
+            "id": "pants_002",
+            "external_url": "https://www.amazon.com/PASLTER-Kaftan-Cotton-Elastic-Trousers/dp/B0D4QCPKM8/ref=sr_1_2"
+          },
+          "shoes": {
+            "title": "BATA Men's Slip-On Punjabi Mojari Jalsa Traditional Ethnic Flats",
+            "id": "shoes_001",
+            "external_url": "https://www.amazon.com/BATA-Slipon-Mojari-Jalsa-Brown/dp/B096BH2VY7/ref=sr_1_1_sspa"
+          },
+          "accessory": {
+            "title": "Men's Banarasi Woven Poly Silk Dupatta Traditional Ethnic Stole (Gold)",
+            "id": "accessories_002",
+            "external_url": "https://www.amazon.com/Weavers-Villa-Banarasi-Traditional-Sherwani/dp/B0F5QJLHHT/ref=sr_1_2"
+          }
+        }
+      },
+      {
+        "id": "set_silk_002",
+        "title": "Art silk kurta (Multi) | Pants: Cotton (Multi) | Stole: Cream | Shoes: Multi (Jutti)",
+        "items": {
+          "sherwani": {
+            "title": "Men's Tunic Art Silk Kurta Pajama Set Wedding Party Dress",
+            "id": "sherwani_001",
+            "external_url": "https://www.amazon.com/SKAVIJ-Tunic-Kurta-Pajama-Summer/dp/B088ZN91GR/ref=sr_1_1_sspa"
+          },
+          "pants": {
+            "title": "Men's Kaftan Thobe Pants Cotton Casual Elastic Waist",
+            "id": "pants_001",
+            "external_url": "https://www.amazon.com/Runcati-Elastic-Drawstring-Trousers-Pockets/dp/B0DPG38J9Z/ref=sr_1_1_sspa"
+          },
+          "shoes": {
+            "title": "BombayFlow RANVEER Punjabi Jutti Indian Flats Handmade Shoes",
+            "id": "shoes_002",
+            "external_url": "https://www.amazon.com/BombayFlow-RANVEER-Punjabi-Jutti-Handmade/dp/B0DGKWNPKP/ref=sr_1_2"
+          },
+          "accessory": {
+            "title": "Traditional Cream Wedding Handmade Dupatta/Stole",
+            "id": "accessories_003",
+            "external_url": "https://www.amazon.com/Traditional-Scarves-Wedding-Handmade-Dupatta/dp/B0B65FLKVG/ref=sr_1_4"
+          }
+        }
+      }
+    ]
+  }

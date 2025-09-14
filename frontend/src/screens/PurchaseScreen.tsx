@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,7 +28,53 @@ const { width } = Dimensions.get('window');
 
 export default function PurchaseScreen({ navigation, route }: Props) {
   const { purchaseItem } = route.params;
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  // Auto-select all items since user is viewing the current outfit
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(
+    new Set(purchaseItem.items.map(item => item.id))
+  );
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const [loadingImages, setLoadingImages] = useState<Set<string>>(
+    new Set(purchaseItem.items.map(item => item.id))
+  );
+  const [currentImageIndex, setCurrentImageIndex] = useState<Map<string, number>>(new Map());
+  const [forceUpdate, setForceUpdate] = useState(0);
+  const [imageTimeouts, setImageTimeouts] = useState<Map<string, NodeJS.Timeout>>(new Map());
+
+  // Add timeout for images that take too long to load
+  useEffect(() => {
+    const timeouts = new Map<string, NodeJS.Timeout>();
+    
+    purchaseItem.items.forEach(item => {
+      if (loadingImages.has(item.id) && !imageErrors.has(item.id)) {
+        const timeout = setTimeout(() => {
+          console.log(`Image loading timeout for ${item.name}, treating as error`);
+          handleImageError(item.id);
+        }, 10000); // 10 second timeout
+        
+        timeouts.set(item.id, timeout);
+      }
+    });
+    
+    setImageTimeouts(timeouts);
+    
+    // Cleanup timeouts on unmount
+    return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+    };
+  }, [loadingImages, imageErrors]);
+
+  // Clear timeout when image loads successfully
+  const clearImageTimeout = (itemId: string) => {
+    const timeout = imageTimeouts.get(itemId);
+    if (timeout) {
+      clearTimeout(timeout);
+      setImageTimeouts(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(itemId);
+        return newMap;
+      });
+    }
+  };
 
   const toggleItemSelection = (itemId: string) => {
     const newSelection = new Set(selectedItems);
@@ -62,18 +108,26 @@ export default function PurchaseScreen({ navigation, route }: Props) {
     }
 
     const totalPrice = selectedItemsList.reduce((sum, item) => sum + item.price, 0);
+    const hasZeroPrices = selectedItemsList.some(item => item.price === 0);
+    
+    const confirmationMessage = hasZeroPrices 
+      ? `You're about to view ${selectedItemsList.length} items on Amazon. Prices will be shown on Amazon.`
+      : `You're about to purchase ${selectedItemsList.length} items for $${totalPrice.toFixed(2)}. This will open Amazon in your browser.`;
     
     Alert.alert(
       'Purchase Confirmation',
-      `You're about to purchase ${selectedItemsList.length} items for $${totalPrice.toFixed(2)}. This will open Amazon in your browser.`,
+      confirmationMessage,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Continue to Amazon', 
           onPress: () => {
-            // Open the first selected item's Amazon link
-            const firstItem = selectedItemsList[0];
-            openAmazonLink(firstItem.amazonUrl);
+            // Open all selected items' Amazon links
+            selectedItemsList.forEach((item, index) => {
+              setTimeout(() => {
+                openAmazonLink(item.amazonUrl);
+              }, index * 1000); // Stagger opening links by 1 second
+            });
           }
         },
       ]
@@ -88,9 +142,147 @@ export default function PurchaseScreen({ navigation, route }: Props) {
     }
   };
 
+  const handleImageError = (itemId: string) => {
+    const item = purchaseItem.items.find(i => i.id === itemId);
+    const currentIndex = currentImageIndex.get(itemId) || 0;
+    const currentUrl = currentIndex === 0 ? item?.imageUrl : item?.alternativeImageUrls?.[currentIndex];
+    
+    console.log(`Image error for ${item?.name} (${itemId}):`, currentUrl);
+    
+    if (!item || !item.alternativeImageUrls) {
+      console.log('No alternative URLs available for', item?.name);
+      // No alternatives, mark as error
+      setImageErrors(prev => new Set([...prev, itemId]));
+      setLoadingImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+      return;
+    }
+
+    const nextIndex = currentIndex + 1;
+    
+    if (nextIndex < item.alternativeImageUrls.length) {
+      console.log(`Trying alternative image ${nextIndex + 1}/${item.alternativeImageUrls.length} for ${item.name}:`, item.alternativeImageUrls[nextIndex]);
+      // Try next alternative image URL
+      setCurrentImageIndex(prev => new Map(prev).set(itemId, nextIndex));
+      // Force re-render by updating a state
+      setLoadingImages(prev => new Set([...prev, itemId]));
+      setForceUpdate(prev => prev + 1);
+    } else {
+      console.log('All image URLs failed for', item.name);
+      // No more alternatives, mark as error
+      setImageErrors(prev => new Set([...prev, itemId]));
+      setLoadingImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+    }
+  };
+
+  // Add image validation function to detect Amazon's blocked images
+  const validateImageLoad = async (itemId: string, imageUrl: string): Promise<boolean> => {
+    try {
+      const response = await fetch(imageUrl, { method: 'HEAD' });
+      const contentType = response.headers.get('content-type');
+      const contentLength = parseInt(response.headers.get('content-length') || '0');
+      
+      // Amazon returns tiny GIF placeholders (43 bytes) for blocked images
+      const isBlocked = contentType === 'image/gif' && contentLength < 100;
+      const isValid = response.ok && (contentType?.startsWith('image/') ?? false) && !isBlocked;
+      
+      console.log(`Image validation for ${itemId}: ${imageUrl} - ${isValid ? 'VALID' : 'BLOCKED/INVALID'} (${response.status}, ${contentType}, ${contentLength} bytes)`);
+      return isValid;
+    } catch (error) {
+      console.log(`Image validation failed for ${itemId}: ${imageUrl}`, error);
+      return false;
+    }
+  };
+
+  const handleImageLoad = async (itemId: string) => {
+    const item = purchaseItem.items.find(i => i.id === itemId);
+    const currentIndex = currentImageIndex.get(itemId) || 0;
+    const currentUrl = currentIndex === 0 ? item?.imageUrl : item?.alternativeImageUrls?.[currentIndex];
+    
+    console.log(`Image onLoad triggered for ${item?.name}:`, currentUrl);
+    
+    // Validate that the image actually loaded successfully
+    if (currentUrl) {
+      const isValid = await validateImageLoad(itemId, currentUrl);
+      if (!isValid) {
+        console.log(`Image validation failed for ${item?.name}, treating as error`);
+        handleImageError(itemId);
+        return;
+      }
+    }
+    
+    console.log(`Image loaded and validated successfully for ${item?.name}:`, currentUrl);
+    clearImageTimeout(itemId);
+    setLoadingImages(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(itemId);
+      return newSet;
+    });
+  };
+
+  const getFallbackImage = (item: OutfitItem): string => {
+    // Use Unsplash for realistic fashion images based on category
+    const unsplashImages = {
+      'top': [
+        'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=300&h=400&fit=crop', // Red kurta style
+        'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=300&h=400&fit=crop', // Traditional shirt
+        'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=300&h=400&fit=crop', // Ethnic wear
+      ],
+      'bottom': [
+        'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=300&h=400&fit=crop', // Traditional pants
+        'https://images.unsplash.com/photo-1506629905607-d9f02a6a0ac7?w=300&h=400&fit=crop', // Casual pants
+        'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=300&h=400&fit=crop', // Linen pants
+      ],
+      'shoes': [
+        'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=300&h=400&fit=crop', // Traditional shoes
+        'https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=300&h=400&fit=crop', // Brown shoes
+        'https://images.unsplash.com/photo-1582897085656-c636d006a246?w=300&h=400&fit=crop', // Ethnic footwear
+      ],
+      'accessories': [
+        'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=300&h=400&fit=crop', // Traditional scarf
+        'https://images.unsplash.com/photo-1492707892479-7bc8d5a4ee93?w=300&h=400&fit=crop', // Accessories
+        'https://images.unsplash.com/photo-1506629905607-d9f02a6a0ac7?w=300&h=400&fit=crop', // Dupatta style
+      ]
+    };
+
+    const categoryImages = unsplashImages[item.category] || unsplashImages['top'];
+    const imageIndex = Math.abs(item.id.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % categoryImages.length;
+    return categoryImages[imageIndex];
+  };
+
+  const getImageSource = (item: OutfitItem) => {
+    if (imageErrors.has(item.id)) {
+      // Use realistic fashion images from Unsplash instead of placeholders
+      return { uri: getFallbackImage(item) };
+    }
+    
+    // Try alternative image URLs if available
+    const currentIndex = currentImageIndex.get(item.id) || 0;
+    if (item.alternativeImageUrls && currentIndex > 0 && currentIndex < item.alternativeImageUrls.length) {
+      const url = item.alternativeImageUrls[currentIndex];
+      console.log(`Using alternative image ${currentIndex + 1} for ${item.name}:`, url);
+      return { uri: url };
+    }
+    
+    // Use primary image URL
+    console.log(`Using primary image for ${item.name}:`, item.imageUrl);
+    return { uri: item.imageUrl };
+  };
+
   const selectedTotal = purchaseItem.items
     .filter(item => selectedItems.has(item.id))
     .reduce((sum, item) => sum + item.price, 0);
+  
+  const hasZeroPrices = purchaseItem.items
+    .filter(item => selectedItems.has(item.id))
+    .some(item => item.price === 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -103,7 +295,7 @@ export default function PurchaseScreen({ navigation, route }: Props) {
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>Your Selected Items</Text>
+          <Text style={styles.title}>Current Outfit Items</Text>
           <Text style={styles.subtitle}>
             {selectedItems.size} of {purchaseItem.items.length} items selected
           </Text>
@@ -114,7 +306,9 @@ export default function PurchaseScreen({ navigation, route }: Props) {
       <View style={styles.summaryContainer}>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Total Price:</Text>
-          <Text style={styles.summaryValue}>${selectedTotal.toFixed(2)}</Text>
+          <Text style={styles.summaryValue}>
+            {hasZeroPrices ? 'See Amazon for prices' : `$${selectedTotal.toFixed(2)}`}
+          </Text>
         </View>
         <TouchableOpacity style={styles.selectAllButton} onPress={handleSelectAll}>
           <Text style={styles.selectAllText}>
@@ -134,7 +328,21 @@ export default function PurchaseScreen({ navigation, route }: Props) {
             onPress={() => toggleItemSelection(item.id)}
           >
             <View style={styles.itemImageContainer}>
-              <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+              <Image 
+                key={`${item.id}-${currentImageIndex.get(item.id) || 0}-${forceUpdate}`}
+                source={getImageSource(item)} 
+                style={styles.itemImage}
+                onError={() => handleImageError(item.id)}
+                onLoad={() => handleImageLoad(item.id)}
+                onLoadStart={() => console.log(`Loading started for ${item.name}`)}
+                onLoadEnd={() => console.log(`Loading ended for ${item.name}`)}
+                resizeMode="cover"
+              />
+              {loadingImages.has(item.id) && (
+                <View style={styles.loadingOverlay}>
+                  <Text style={styles.loadingText}>Loading...</Text>
+                </View>
+              )}
               {selectedItems.has(item.id) && (
                 <View style={styles.selectedOverlay}>
                   <Text style={styles.selectedCheckmark}>✓</Text>
@@ -151,7 +359,9 @@ export default function PurchaseScreen({ navigation, route }: Props) {
                 {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
               </Text>
               <View style={styles.itemDetails}>
-                <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+                <Text style={styles.itemPrice}>
+                  {item.price > 0 ? `$${item.price.toFixed(2)}` : 'See Amazon for price'}
+                </Text>
                 <Text style={styles.itemSizes}>
                   Sizes: {item.sizes.join(', ')}
                 </Text>
@@ -192,7 +402,10 @@ export default function PurchaseScreen({ navigation, route }: Props) {
           disabled={selectedItems.size === 0}
         >
           <Text style={styles.purchaseButtonText}>
-            Purchase Selected ({selectedItems.size}) - ${selectedTotal.toFixed(2)}
+            {hasZeroPrices 
+              ? `View Selected (${selectedItems.size}) on Amazon`
+              : `Purchase Selected (${selectedItems.size}) - $${selectedTotal.toFixed(2)}`
+            }
           </Text>
         </TouchableOpacity>
       </View>
@@ -319,6 +532,22 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  loadingText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   itemInfo: {
     marginBottom: 12,

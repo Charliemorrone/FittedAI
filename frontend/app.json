@@ -34,6 +34,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "GRAY_WHALE_SERVER_URL": "https://app.productgenius.io",
+      "GRAY_WHALE_ORG_ID": "######",
+      "GRAY_WHALE_ACCESS_TOKEN": "######"
     }
   }
 }
