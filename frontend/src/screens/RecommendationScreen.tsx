@@ -373,6 +373,18 @@ export default function RecommendationScreen({ navigation, route }: Props) {
     return `https://via.placeholder.com/300x400/6366f1/FFFFFF?text=${encodeURIComponent(imageText)}`;
   };
 
+  // Safely get an image URL for an outfit recommendation (fallbacks included)
+  const getOutfitImageUrl = (outfit?: OutfitRecommendation): string => {
+    if (!outfit) return 'https://via.placeholder.com/400x600/111827/FFFFFF?text=No+Image';
+    const primary = outfit.imageUrl && outfit.imageUrl.trim().length > 0 ? outfit.imageUrl : null;
+    const fromFirstItem = outfit.items && outfit.items[0] && outfit.items[0].imageUrl ? outfit.items[0].imageUrl : null;
+    return (
+      primary ||
+      fromFirstItem ||
+      'https://via.placeholder.com/400x600/111827/FFFFFF?text=Loading+Style'
+    );
+  };
+
   // Animation helper functions
   const resetCardAnimations = () => {
     translateX.setValue(0);
@@ -1097,7 +1109,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
+          <Ionicons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Get Fitted</Text>
@@ -1124,7 +1136,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
             ]}
           >
             <Image 
-              source={{ uri: recommendations[currentIndex + 1].imageUrl }} 
+              source={{ uri: getOutfitImageUrl(recommendations[currentIndex + 1]) }} 
               style={styles.outfitImage} 
             />
           </Animated.View>
@@ -1134,7 +1146,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
         {(!isCollectionsMode && currentIndex + 2 < recommendations.length) && (
           <View style={[styles.outfitCard, styles.thirdCard]}>
             <Image 
-              source={{ uri: recommendations[currentIndex + 2].imageUrl }} 
+              source={{ uri: getOutfitImageUrl(recommendations[currentIndex + 2]) }} 
               style={styles.outfitImage} 
             />
           </View>
@@ -1193,7 +1205,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
               </View>
             ) : (
               <>
-                <Image source={{ uri: currentOutfit?.imageUrl || '' }} style={styles.outfitImage} />
+                <Image source={{ uri: getOutfitImageUrl(currentOutfit || undefined) }} style={styles.outfitImage} />
                 
                 {/* Enhanced Swipe Indicators */}
                 <Animated.View 
@@ -1457,7 +1469,7 @@ export default function RecommendationScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#0b1220',
   },
   loadingContainer: {
     flex: 1,
@@ -1528,15 +1540,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1547,7 +1558,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: '#ffffff',
   },
   progressIndicator: {
     alignItems: 'center',
@@ -1555,7 +1566,7 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6b7280',
+    color: '#cbd5e1',
   },
   // Card Stack Container
   cardStackContainer: {
@@ -1639,9 +1650,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
     paddingVertical: 30,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    backgroundColor: 'rgba(2, 6, 23, 0.7)',
+    borderTopWidth: 0,
   },
   actionButton: {
     width: 64,
