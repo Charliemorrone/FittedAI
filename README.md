@@ -1,7 +1,7 @@
 # FittedAI - See It. Wear It. Love It.
 
 Team photo (proof we’re real humans):  
-![Team Photo](https://fittedai.s3.us-east-1.amazonaws.com/IMG_0685.png)
+![Team Photo](https://fittedai.s3.us-east-1.amazonaws.com/IMG_0685.webp)
 
 Demo video (watch our baby in action):  
 [👉 Demo.mov](https://fittedai.s3.us-east-1.amazonaws.com/Demo.mov)
